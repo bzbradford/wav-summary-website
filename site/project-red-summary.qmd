@@ -1,0 +1,314 @@
+---
+title: "Project RED AIS Monitoring Summary"
+format:
+  html:
+    pagetitle: "AIS Monitoring Summary - Water Action Volunteers"
+    toc: true
+    toc-expand: true
+    echo: true
+    warning: false
+    fig-align: center
+    fig-height: 5
+    fig-width: 8
+    code-fold: true
+---
+
+```{r setup}
+#| include: false
+
+library(tidyverse)
+library(sf)
+library(leaflet)
+library(janitor)
+library(glue)
+library(gt)
+
+knitr::opts_chunk$set(dev = "png", dev.args = list(type = "cairo-png"))
+
+load("project-red-summary.RData")
+
+plt_theme <- theme(
+  axis.text.x = element_text(face = "bold", size = 10),
+  panel.background = element_blank(),
+  legend.position = "none"
+)
+
+```
+
+Project RED (Riverine Early Detectors) is a volunteer AIS (Aquatic Invasive Species) monitoring program. Visit [Water Action Volunteers](https://wateractionvolunteers.org/){target="_blank"} for more information.
+
+## Interactive map
+
+*This map shows all point stations and river segments that were monitored at least once for AIS between 2008 and present. River segments are shown as red lines and point stations are shown as orange circles. Individual fieldwork events are shown as blue pins or numbered groups when zoomed out. Click on a blue pin to get more information about an AIS fieldwork event.*
+
+```{r}
+#| fig-height: 9
+
+leaflet() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolylines(
+    data = stn_lines,
+    label = ~ paste(station_id, station_name),
+    color = "darkred", opacity = 1
+  ) %>%
+  addCircleMarkers(
+    data = stn_pts,
+    label = ~ paste(station_id, station_name),
+    radius = 3,
+    color = "black", weight = 1, opacity = 1,
+    fillColor = "orange", fillOpacity = 1
+  ) %>%
+  addMarkers(
+    data = all_pts,
+    popup = ~popup,
+    clusterOptions = markerClusterOptions()
+  )
+```
+
+## Static map
+
+*Stations monitored for AIS at any time between 2008 and present are shown below.*
+
+```{r}
+#| fig-height: 7
+
+county_counts <- all_pts %>%
+  st_set_geometry(NULL) %>%
+  count(county_name)
+
+ggplot() +
+  geom_sf(data = wi_counties) +
+  geom_sf(data = wi_counties %>%
+      left_join(county_counts), aes(fill = n), alpha = .5) +
+  geom_sf(data = wi, fill = NA, lwd = .75) +
+  geom_sf_text(data = wi_counties, aes(label = county_name), angle = 15, size = 2, alpha = .5) +
+  geom_sf(data = all_pts, shape = 24, fill = "orange", size = 3) +
+  scale_fill_viridis_c(na.value = "grey90") +
+  labs(fill = "Stations\nin county\n") +
+  theme_void() +
+  guides(
+    fill = guide_colorsteps(frame.colour = "black", show.limits = T)
+  )
+```
+
+
+## Participation summary
+
+### Number of fieldwork events
+
+*Fieldwork events represent a complete data submission to the SWIMS system, identified by a fieldwork sequence number (fsn).*
+
+```{r}
+fieldwork_group_crossjoin %>%
+  mutate(year = as.character(year)) %>%
+  summarize(n = n_distinct(fsn), .by = year) %>%
+  ggplot(aes(x = year, y = n, fill = n, label = n)) +
+  geom_col(color = "black") +
+  geom_text(vjust = -1) +
+  scale_y_continuous(expand = expansion(c(.01, .1))) +
+  scale_fill_viridis_c() +
+  labs(x = NULL, y = "Number of fieldwork events") +
+  plt_theme
+  
+```
+
+### Number of stations monitored
+
+*SWIMS stations may be point stations or river/stream segments identified by a station id.*
+
+```{r}
+fieldwork_group_crossjoin %>%
+  mutate(year = as.character(year)) %>%
+  summarize(n = n_distinct(station_id), .by = year) %>%
+  ggplot(aes(x = year, y = n, fill = n, label = n)) +
+  geom_col(color = "black") +
+  geom_text(vjust = -1) +
+  scale_y_continuous(expand = expansion(c(.01, .1))) +
+  scale_fill_viridis_c() +
+  labs(x = NULL, y = "Number of stations") +
+  plt_theme
+  
+```
+
+### Number of distinct waterbodies monitored
+
+*Waterbodies are differentiated by a unique WBIC.*
+
+```{r}
+fieldwork_group_crossjoin %>%
+  mutate(year = as.character(year)) %>%
+  summarize(n = n_distinct(wbic), .by = year) %>%
+  ggplot(aes(x = year, y = n, fill = n, label = n)) +
+  geom_col(color = "black") +
+  geom_text(vjust = -1) +
+  scale_y_continuous(expand = expansion(c(.01, .1))) +
+  scale_fill_viridis_c() +
+  labs(x = NULL, y = "Number of waterbodies") +
+  plt_theme
+  
+```
+
+### Number of volunteers
+
+*Volunteer counts are determined by unique full names tagged to a fieldwork event by a data submitter group id.*
+
+```{r}
+fieldwork_group_crossjoin %>%
+  mutate(year = as.character(year)) %>%
+  summarize(n = n_distinct(full_name), .by = year) %>%
+  ggplot(aes(x = year, y = n, fill = n, label = n)) +
+  geom_col(color = "black") +
+  geom_text(vjust = -1) +
+  scale_y_continuous(expand = expansion(c(.01, .1))) +
+  scale_fill_viridis_c() +
+  labs(x = NULL, y = "Number of volunteers") +
+  plt_theme
+  
+```
+
+## Fieldwork results summary
+
+### What species are commonly looked for or not looked for?
+
+*These questions are coded in SWIMS as DNR parameters 91157 - 91172. These questions specifically ask if a data submitter looked for one of these species. They may answer YES or NO, but they may also leave the question blank (marked as 'No answer').*
+
+```{r}
+#| fig-height: 6
+
+ais_looked_for <- ais_results %>%
+  filter(parameter_code %in% 91157:91172) %>%
+  mutate(
+    parameter_name = parameter_name %>%
+      str_replace("\\?", "") %>%
+      str_replace("Did you look for ", "") %>%
+      str_to_title()) %>%
+  mutate(total = n_distinct(fsn)) %>%
+  summarize(n = n(), .by = c(parameter_name, result, total)) %>%
+  pivot_wider(names_from = result, values_from = n, values_fill = 0) %>%
+  clean_names() %>%
+  mutate(na = total - yes - no) %>%
+  mutate(across(c(yes, no, na), ~ .x / total)) %>%
+  arrange(desc(yes)) %>%
+  mutate(parameter_name = fct_inorder(parameter_name))
+
+ais_looked_for %>%
+  pivot_longer(cols = c(yes, no, na)) %>%
+  mutate(
+    name = name %>%
+      case_match(
+        "yes" ~ "Yes",
+        "no" ~ "No",
+        "na" ~ "No answer"
+      ) %>%
+      factor(levels = c("Yes", "No", "No answer"))
+  ) %>%
+  mutate(label = scales::percent(value, 1)) %>%
+  ggplot(aes(x = value, y = parameter_name, fill = name)) +
+  geom_col(color = "white", position = position_stack(reverse = T)) +
+  geom_text(
+    aes(label = label),
+    position = position_stack(vjust = .5, reverse = T)
+  ) +
+  scale_x_continuous(
+    labels = scales::percent,
+    expand = expansion(c(0, .05))) +
+  labs(
+    y = NULL,
+    x = glue("Percent of fieldwork (n = {ais_looked_for$total[1]})"),
+    fill = "Did you look for this AIS?"
+  ) +
+  theme(
+    legend.position = "top",
+    panel.background = element_blank())
+```
+
+### What other write-in species do people look for?
+
+*This question is coded in SWIMS as 91173. Species mentioned only once or fieldwork comments entered in this field are ignored. Volunteers often input species names with different capitalizations or listed several in a sentence, here an automated process was used to try to clean up and tally mentions of different species.*
+
+```{r}
+#| fig-height: 6
+
+ais_looked_for_other <- ais_results %>%
+  filter(parameter_code == 91173) %>%
+  pull(result) %>%
+  na.omit() %>%
+  paste(collapse = ", ") %>%
+  str_replace_all(coll(";"), ",") %>%
+  str_replace_all(coll("."), "") %>%
+  str_replace_all(coll(" and ", ignore_case = T), ", ") %>%
+  str_split(",", simplify = T) %>%
+  str_trim() %>%
+  sort() %>%
+  str_to_title() %>%
+  as_tibble() %>%
+  filter(nchar(value) > 0) %>%
+  count(value) %>%
+  arrange(desc(n))
+
+ais_looked_for_other %>%
+  filter(n > 1) %>%
+  mutate(value = fct_rev(fct_inorder(value))) %>%
+  ggplot(aes(x = n, y = value, fill = n)) +
+  geom_col(color = "white", width = 1) +
+  geom_text(aes(label = n), hjust = -.25) +
+  scale_fill_viridis_c() +
+  scale_x_continuous(
+    breaks = scales::breaks_pretty(),
+    expand = expansion(c(0, .1))) +
+  labs(x = "Number of times mentioned", y = NULL) +
+  theme(
+    legend.position = "none",
+    panel.background = element_blank())
+```
+
+### What species are commonly found?
+
+*During a fieldwork data submission in SWIMS, volunteers may indicate that they found one or more invasive species during their survey. Below, counts are indicated for all fieldwork submitted from 2008 to present. 'Stations with AIS' refers to any station with at least one positive AIS identification, 'Fieldwork with AIS' refers to fieldwork submissions with at least one positive AIS identification, and 'AIS instances' refers to individual AIS reports (there may be more than one per fieldwork submission).*
+
+```{r}
+ais_found_totals <- ais_results %>%
+  filter(parameter_code == 20043) %>%
+  summarize(
+    stations = n_distinct(station_id),
+    fieldwork = n_distinct(fsn),
+    found = n()
+  )
+
+ais_found <- ais_results %>%
+  filter(parameter_code == 20043) %>%
+  count(station_id, fsn, result) %>%
+  summarize(
+    stations = n_distinct(station_id),
+    fieldwork = n_distinct(fsn),
+    found = sum(n),
+    .by = result) %>%
+  arrange(desc(stations)) %>%
+  mutate(across(stations, ~ paste0(.x, " (", round(.x / ais_found_totals$stations * 100), "%)"))) %>%
+  mutate(across(fieldwork, ~ paste0(.x, " (", round(.x / ais_found_totals$fieldwork * 100), "%)"))) %>%
+  mutate(across(found, ~ paste0(.x, " (", round(.x / ais_found_totals$found * 100), "%)")))
+
+ais_found %>%
+  set_names(c(
+    "Aquatic Invasive Species",
+    paste0("Stations with AIS<br>(n = ", ais_found_totals$stations, ")"),
+    paste0("Fieldwork with AIS<br>(n = ", ais_found_totals$fieldwork, ")"),
+    paste0("AIS instances<br>(n = ", ais_found_totals$found, ")")
+  )) %>%
+  gt() %>%
+  cols_label_with(fn = html)
+```
+
+## SWIMS parameters associated with AIS fieldwork
+
+*When volunteers submit data to SWIMS each field has an internal parameter code as well as a description (which is shown to the submitter). In the table below, the frequency indicates how many times the parameter was included in the AIS dataset.*
+
+```{r}
+dnr_parameters %>%
+  set_names(c("Code", "Description", "Frequency")) %>%
+  gt()
+```
+
+::: {style="margin-top: 4em; border-top: 1px solid grey; color: grey; font-size: small"}
+*Project RED summary developed by Ben Bradford (UW-Madison Entomology) and Emily Heald (Rivers Educator, UW-Extension NRI). Data courtesy Wisconsin DNR with special thanks to Justin Chenevert.*
+:::

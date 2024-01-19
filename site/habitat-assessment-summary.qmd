@@ -1,0 +1,441 @@
+---
+title: "Habitat Assessment Summary"
+format:
+  html:
+    pagetitle: "Habitat Assessment Summary - Water Action Volunteers"
+    toc: true
+    echo: true
+    code-fold: true
+    warning: false
+    fig-align: center
+    fig-height: 5
+    fig-width: 8
+---
+
+```{r setup}
+#| include: false
+
+library(tidyverse)
+library(janitor)
+library(sf)
+library(leaflet)
+
+knitr::opts_chunk$set(dev = "png", dev.args = list(type = "cairo-png"))
+
+load("habitat-assessment-summary.RData")
+
+plt_theme <- theme(
+  axis.text.x = element_text(face = "bold", size = 10),
+  panel.background = element_blank())
+
+```
+
+## Understanding what assessments happen, and how often
+
+### How many assessments were done each year?
+
+::: callout-note
+The habitat assessment data spans `r min_year` to `r max_year` and includes `r n_events` total habitat assessment fieldwork events performed at `r n_stns` different stations.
+:::
+
+#### Habitat assessment stations and fieldwork events by year
+
+```{r}
+hab_annual_counts %>%
+  ggplot(aes(x = as.factor(year), y = n_stations, fill = n_stations)) +
+  geom_col(color = "black") +
+  geom_text(aes(label = sprintf("%s stations\n%s events", n_stations, n_events)), vjust = -0.5, size = 3) +
+  scale_y_continuous(expand = expansion(c(0.01, 0.1))) +
+  scale_fill_viridis_c() +
+  labs(x = NULL, y = "Number of stations assessed") +
+  guides(fill = guide_none()) +
+  plt_theme
+```
+
+### Who is doing habitat assessments?
+
+::: callout-note
+From `r min_year` to `r max_year` habitat assessments were performed by `r n_submitters` volunteers, of which `r n_submitters - n_solo_submitters` were affiliated with an organization and `r n_solo_submitters` did not have an organization listed in SWIMS. There are `r n_orgs` organizations listed in the habitat assessment data.
+:::
+
+#### Organizations performing habitat assessments
+
+```{r}
+hab_orgs %>%
+  clean_names("title") %>%
+  DT::datatable()
+```
+
+#### Individual volunteers performing habitat assessments
+
+```{r}
+hab_submitters %>%
+  clean_names("title") %>%
+  DT::datatable()
+```
+
+### Are the same streams being assessed each year?
+
+::: callout-note
+Between `r min_year` and `r max_year`, most stream sites (`r stn_fw_years_top2`) had only 1 or 2 habitat assessments completed on them. It is less common for volunteers to reassess a stream's habitat multiple times per year.
+:::
+
+#### Number of years habitat assessments were performed at stations
+
+```{r}
+stn_fw_years %>%
+  mutate(pct = scales::percent(n / sum(n), 1)) %>%
+  mutate(label = sprintf("%s stns\n(%s)", n, pct)) %>%
+  ggplot(aes(x = as.factor(years), y = n, fill = years)) +
+  geom_col(width = 1, color = "white", linewidth = 0.25) +
+  geom_text(aes(label = label), vjust = -0.25) +
+  scale_y_continuous(expand = expansion(c(0.01, 0.2))) +
+  labs(x = "Number of years monitored", y = "Number of stations") +
+  plt_theme +
+  theme(legend.position = "none")
+```
+
+### How many times do volunteers perform habitat assessments on a stream each year?
+
+::: callout-note
+Most streams that have been assessed were only visited once per year, but some stations were visited multiple times in a year. Below, see the percent of stations that were assessed multiple times in a year.
+:::
+
+#### Number of times sites were reassessed each year (table)
+
+```{r}
+fieldwork_info %>%
+  count(station_id, year, name = "n_events") %>%
+  count(year, n_events, name = "n_stns") %>%
+  group_by(year) %>%
+  mutate(pct = sprintf("%.1f%%", n_stns / sum(n_stns) * 100)) %>%
+  select(-n_stns) %>%
+  rename(Year = year) %>%
+  pivot_wider(names_from = "n_events", values_from = "pct", values_fill = "-") %>%
+  knitr::kable(align = "c")
+
+
+```
+
+#### Number of times sites were reassessed each year (figure)
+
+```{r}
+fieldwork_info %>%
+  count(station_id, year, name = "n_events") %>%
+  count(year, n_events, name = "n_stns") %>%
+  group_by(year) %>%
+  mutate(prp = n_stns / sum(n_stns)) %>%
+  mutate(x = sprintf("%s\n(%s stns)", year, sum(n_stns))) %>%
+  ggplot(aes(x = x, y = prp, fill = as.factor(n_events))) +
+  geom_col(position = position_stack(reverse = T), width = 1, color = "white", linewidth = 0.25) +
+  scale_y_continuous(expand = expansion(0), labels = scales::label_percent()) +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(nrow = 1)) +
+  labs(y = "Percent of stations assessed n times", x = NULL, fill = "Habitat assessments per year") +
+  plt_theme +
+  theme(legend.position = "bottom")
+```
+
+### How many assessments were done in July and August, compared to other growing season months?
+
+Current WAV protocols recommend performing one habitat assessment per year, in either July or August. In recent years, a majority (\>50%) of assessments have been performed in these two months.
+
+#### Percent of assessments performed in Jul/Aug
+
+```{r}
+fieldwork_info %>%
+  mutate(month = month(date), month_name = month.name[month]) %>%
+  count(year, month, month_name) %>%
+  mutate(season = case_when(
+    month <= 6 ~ "Earlier",
+    month %in% c(7, 8) ~ "Jul/Aug",
+    T ~ "Later")) %>%
+  mutate(season = fct_inorder(season)) %>%
+  count(year, season, wt = n) %>%
+  group_by(year) %>%
+  mutate(n = scales::percent(n / sum(n), 1)) %>%
+  pivot_wider(names_from = "season", values_from = "n") %>%
+  left_join(count(fieldwork_info, year, name = "Total assessments"), by = "year") %>%
+  rename(Year = year) %>%
+  knitr::kable(align = "c")
+```
+
+#### Habitat assessment timing grid
+
+```{r}
+fieldwork_info %>%
+  mutate(month = factor(format(date, "%b"), levels = month.abb)) %>%
+  droplevels() %>%
+  count(year, month) %>%
+  mutate(prp = n / sum(n), .by = year) %>%
+  complete(year, month, fill = list(prp = 0)) %>%
+  mutate(pct = scales::percent(prp, 1)) %>%
+  mutate(text_color = if_else(prp < mean(prp), "white", "black")) %>%
+  mutate(year = factor(year)) %>%
+  ggplot(aes(x = month, y = fct_rev(year), fill = prp, label = pct)) +
+  geom_tile() +
+  geom_text(aes(color = text_color)) +
+  coord_equal(ratio = 0.65) +
+  scale_color_identity() +
+  scale_fill_viridis_c() +
+  labs(x = NULL, y = NULL) +
+  theme_void() +
+  theme(
+    axis.text = element_text(face = "bold"),
+    legend.position = "none",
+    plot.margin = unit(rep(0.5, 4), "cm"))
+```
+
+## Which form are volunteers using to submit habitat assessment data?
+
+::: callout-caution
+While there are `r n_events` habitat assessment fieldwork events in the dataset, `r length(hab_fsn_more10)` appear to have been performed on streams more than 10m wide. Below, see how many assessments were performed using each form each year. Data summaries presented below only use data submitted using the QUAL_FISH_HAB_LESS10 form.
+:::
+
+### Habitat assessment counts by form code
+
+```{r}
+form_levels <- c(
+  "QUAL_FISH_HAB_MORE10\n(Stream >10m wide)",
+  "Both forms",
+  "QUAL_FISH_HAB_LESS10\n(Stream <10m wide)"
+)
+fieldwork_info %>%
+  mutate(form_code = case_when(
+    (fsn %in% hab_fsn_more10) & (fsn %in% hab_fsn_less10) ~ form_levels[2],
+    fsn %in% hab_fsn_more10 ~ form_levels[1],
+    fsn %in% hab_fsn_less10 ~ form_levels[3]
+  )) %>%
+  count(year, form_code, fsn) %>%
+  count(year, form_code) %>%
+  mutate(total = sum(n), .by = year) %>%
+  mutate(form_code = factor(form_code, levels = form_levels)) %>%
+  ggplot(aes(x = factor(year), y = n, fill = form_code)) +
+  geom_col(position = position_stack(reverse = T), color = "black") +
+  geom_text(aes(label = n), position = position_stack(vjust = .5, reverse = T)) +
+  geom_text(aes(y = total, label = total), vjust = -.5) +
+  scale_y_continuous() +
+  scale_fill_manual(values = c("#589458", "orange", "#71bb71")) +
+  plt_theme +
+  labs(x = NULL, y = "Number of assessments", fill = "Form code") +
+  theme(legend.position = "bottom")
+```
+
+### Form completion rate
+
+```{r}
+fieldwork_info %>%
+  filter(fsn %in% hab_fsn_less10) %>%
+  mutate(complete = fsn %in% hab_fsn_less10_complete) %>%
+  count(year, fsn, complete) %>%
+  count(year, complete) %>%
+  mutate(complete = if_else(complete, "Complete", "Incomplete")) %>%
+  ggplot(aes(x = factor(year), y = n, fill = complete)) +
+  geom_col(position = "stack", color = "black") +
+  geom_text(aes(label = n), position = "stack", vjust = -0.5) +
+  scale_fill_manual(values = c("#00bfc3", "#ff7771")) +
+  scale_y_continuous() +
+  plt_theme +
+  labs(x = NULL, y = "Number of assessments", fill = "LESS10 form completion") +
+  theme(legend.position = "bottom")
+  
+```
+
+## Understanding the quality of streams, according to volunteer assessments
+
+::: callout-important
+The summaries below use only data from the QUAL_FISH_HAB_LESS10 form, intended for use with habitat assessments performed on streams \< 10m (33 ft) wide. Between `r min_year` and `r max_year` there were `r length(unique(hab_data_less10$fsn))` such assessments.
+:::
+
+### What's the range of final scores (histogram?)?
+
+```{r}
+#| fig-height: 4
+add_rect <- function(min, max, center, label, color, width = 5) {
+  list(
+    annotate(
+      "rect",
+      xmin = min - width / 2,
+      xmax = max + width / 2,
+      ymin = 0,
+      ymax = Inf,
+      fill = color
+    ),
+    annotate(
+      "text",
+      x = center,
+      y = Inf,
+      label = label,
+      vjust = 1.25,
+      hjust = 0.5
+    )
+  )
+}
+
+hab_data_less10_complete %>%
+  filter(parameter_code == 4237) %>%
+  ggplot(aes(result_value)) +
+  add_rect(0, 15, 7.5, "Poor\n(0-19)", alpha("red", .1)) +
+  add_rect(20, 55, 37.5, "Fair\n(20-59)", alpha("orange", .1)) +
+  add_rect(60, 75, 67.5, "Good\n(60-79)", alpha("blue", .1)) +
+  add_rect(80, 100, 90, "Excellent\n(80-100)", alpha("green", .1)) +
+  geom_histogram(
+    aes(fill = after_stat(count)),
+    binwidth = 5,
+    color = "black",
+    linewidth = 0.25) +
+  scale_fill_viridis_c() +
+  scale_x_continuous(breaks = seq(0, 100, 20), expand = expansion(0)) +
+  scale_y_continuous(expand = expansion(c(0, 0.15))) +
+  labs(
+    x = "Total qualitative fish habitat score (parameter 4237)",
+    y = "Number of assessments") +
+  theme_classic() +
+  theme(
+    panel.background = element_blank(),
+    legend.position = "none")
+```
+
+### Are final scores changing over time?
+
+The distribution qualitative fish habitat scores recorded each year are shown below, with the median value shown as a pink triangle. Scores are not noticeably trending one direction or another over the dataset, though over the last several years, the median score has ticked slightly downward.
+
+```{r}
+#| fig-height: 8
+
+hab_data_less10_complete %>%
+  filter(parameter_code == 4237) %>%
+  mutate(label = sprintf("%s\n(n = %s)", year, n_distinct(fsn)), .by = year) %>%
+  mutate(median = median(result_value), .by = label) %>%
+  ggplot(aes(result_value)) +
+  geom_histogram(
+    aes(y = after_stat(density), fill = after_stat(density)),
+    binwidth = 5,
+    color = "black",
+    linewidth = 0.25) +
+  geom_point(aes(x = median, y = 0), shape = 24, color = "black", fill = "orchid", size = 6) +
+  scale_fill_viridis_c() +
+  scale_y_continuous(expand = expansion(c(0, 0.05))) +
+  facet_grid(label ~ ., switch = "y") +
+  labs(
+    x = "Total qualitative fish habitat score (parameter 4237)",
+    y = NULL) +
+  theme(
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.background = element_blank(),
+    strip.text = element_text(face = "bold", size = 10),
+    legend.position = "none")
+```
+
+### What's the range of scores for each parameter?
+
+#### Habitat assessment scores (table)
+
+```{r}
+hab_data_named_scores %>%
+  count(parameter_label, score_name) %>%
+  mutate(prp = n / sum(n), .by = parameter_label) %>%
+  mutate(value = sprintf("%s (%.0f%%)", n, prp * 100)) %>%
+  select(parameter_label, score_name, value) %>%
+  pivot_wider(names_from = "score_name", values_from = "value") %>%
+  rename(`DNR Parameter` = parameter_label) %>%
+  knitr::kable(align = "lccc")
+```
+
+#### Habitat assessment scores (figure)
+
+```{r}
+#| fig-height: 7
+
+hab_data_named_scores %>%
+  count(parameter_label, score_name) %>%
+  mutate(prp = n / sum(n), .by = parameter_label) %>%
+  ggplot(aes(x = score_name, y = prp, fill = prp)) +
+  geom_col(color = "black", linewidth = 0.25) +
+  geom_text(aes(label = scales::percent(prp, 1)), vjust = -0.5, size = 3) +
+  scale_fill_viridis_c(limits = c(0, 1)) +
+  scale_y_continuous(expand = expansion(c(0, 0.15)), labels = scales::label_percent()) +
+  facet_wrap(~ parameter_label, scales = "free", ncol = 3) +
+  labs(x = "Score", y = "Percent of assessments") +
+  theme(
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.background = element_blank(),
+    legend.position = "none")
+```
+
+## Understanding where stream assessments are happening in Wisconsin
+
+### Which counties have the most habitat assessments?
+
+Habitat assessments have been performed in `r nrow(county_totals)` out of 72 counties in Wisconsin (`r scales::percent(nrow(county_totals) / 72)`). Browse the list below for more details.
+
+```{r}
+county_totals %>%
+  select(-dnr_region_name) %>%
+  janitor::clean_names("title") %>%
+  DT::datatable()
+```
+
+### Stream assessment locations
+
+```{r warning=F}
+#| fig-height: 8
+
+ggplot() +
+  geom_sf(
+    data = wi_counties_hab_counts,
+    aes(fill = n_events),
+    alpha = 0.5) +
+  geom_sf_text(
+    data = wi_counties,
+    aes(label = county_name),
+    alpha = .5,
+    size = 1.5) +
+  geom_sf(data = stns.sf, shape = 17) +
+  scale_fill_viridis_c(na.value = "grey") +
+  labs(fill = "Habitat assessments per county") +
+  theme_void() +
+  theme(legend.position = "bottom")
+```
+
+*Simple map of Wisconsin showing where stream assessments have occurred. Counties are color-coded by how many total assessments have been performed.*
+
+### Interactive map
+
+::: {style="aspect-ratio: 1"}
+```{r}
+#| fig-height: 10
+
+leaflet() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(
+    data = leaflet_counties,
+    weight = 1,
+    label = ~lapply(label, shiny::HTML),
+    color = "grey",
+    fillColor = ~leaflet_pal(n_events)) %>%
+  addCircleMarkers(
+    data = stn_points,
+    label = ~lapply(label, shiny::HTML),
+    radius = 4,
+    weight = 1,
+    color = "black",
+    fillColor = "green",
+    fillOpacity = .5
+  ) %>%
+  addMarkers(
+    data = fw_points,
+    label = ~lapply(label, shiny::HTML),
+    popup = ~popup,
+    clusterOptions = markerClusterOptions()
+  )
+```
+:::
+
+*Click on a cluster to zoom in, click on any marker to view a record of a habitat assessment performed at that location. Green circles show DNR station locations, markers show individual fieldwork events. Counties are colored by the total number of habitat assessments performed in that county.*
+
+::: {style="margin-top: 4em; border-top: 1px solid grey; color: grey; font-size: small"}
+*Habitat assessment summary developed by Ben Bradford (UW-Madison Entomology) and Katy Bradford (WAV Program Manager, UW-Extension NRI). Data courtesy Wisconsin DNR with special thanks to Justin Chenevert.*
+:::

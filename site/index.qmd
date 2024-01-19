@@ -1,0 +1,29 @@
+---
+title: |
+  | ![](header.png)
+  | 
+  | WAV Monitoring Summaries
+format:
+  html:
+    pagetitle: "Monitoring Summaries - Water Action Volunteers"
+---
+
+The [**Water Action Volunteers (WAV)**](https://wateractionvolunteers.org/){target="_blank"} program is a statewide network of citizen scientist volunteers committed to monitoring as much of Wisconsin's 86,000+ miles of streams and rivers as possible.
+
+Our aim is to preserve, protect and restore the state's streams and rivers by collecting high-quality stream data that's useful for decision-making and natural resource management.
+
+Every year, volunteers monitor more than 600 stream locations throughout Wisconsin. This effort wouldn't be possible without the ongoing partnership between [**University of Wisconsin–Madison Division of Extension**](https://extension.wisc.edu/){target="_blank"}, the [**Wisconsin Department of Natural Resources**](https://dnr.wi.gov/){target="_blank"} (WDNR) and, of course, our dedicated volunteers.
+
+# Visit the data dashboard
+
+The best way to interact with the data our volunteers collect is to visit our [**online data dashboard**](https://connect.doit.wisc.edu/wav-dashboard/){target="_blank"}. Here you can view and interact with water quality data collected since 2015.
+
+# View monitoring summaries
+
+We also have a few special summaries of WAV data including some data that isn't available on our data dashboard yet:
+
+-   [**Annual Monitoring Summary**](annual-monitoring-summary.qmd)
+
+-   [**Habitat Assessment Summary**](habitat-assessment-summary.qmd)
+
+-   [**Project RED AIS Monitoring Summary**](project-red-summary.qmd)

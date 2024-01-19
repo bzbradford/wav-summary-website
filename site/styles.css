@@ -1,0 +1,10 @@
+/* css styles */
+
+.navbar-brand > img {
+  max-height: 50px;
+}
+
+.leaflet-popup-content-wrapper {
+  max-height: 400px;
+  overflow-y: scroll;
+}
