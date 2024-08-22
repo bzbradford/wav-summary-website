@@ -373,7 +373,7 @@ Habitat assessments have been performed in `r nrow(county_totals)` out of 72 cou
 
 ```{r}
 county_totals %>%
-  select(-dnr_region_name) %>%
+  # select(-dnr_region) %>%
   janitor::clean_names("title") %>%
   DT::datatable()
 ```

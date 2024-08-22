@@ -10,7 +10,13 @@ rm(list = ls())
 # Load data ----
 
 # fieldwork results
-results_in <- read_csv("habitat-data/habitat-assessment-results.csv") %>%
+results_in <-
+  list(
+    "habitat-data/WAV Habitat Results 2015-2023.xlsx",
+    "habitat-data/WAV Habitat Results 2024.xlsx"
+  ) %>%
+  lapply(readxl::read_excel) %>%
+  bind_rows() %>%
   clean_names() %>%
   select(
     fsn = fieldwork_seq_no,
@@ -23,10 +29,16 @@ results_in <- read_csv("habitat-data/habitat-assessment-results.csv") %>%
   drop_na(result_value)
 
 # submitters by fieldwork
-submitters_in <- read_csv("habitat-data/habitat-assessment-submitters.csv") %>%
+submitters_in <-
+  list(
+    "habitat-data/WAV Habitat Submitters 2015-2023.xlsx",
+    "habitat-data/WAV Habitat Submitters 2024.xlsx"
+  ) %>%
+  lapply(readxl::read_excel) %>%
+  bind_rows() %>%
   clean_names() %>%
   mutate(
-    start_datetime = parse_date_time(start_datetime, c("mdY", "mdy IM Op")),
+    # start_datetime = parse_date_time(start_datetime, c("mdY", "mdY IM Op")),
     date = as.Date(start_datetime),
     year = year(date),
     month = month(date),
@@ -46,14 +58,20 @@ submitters_in <- read_csv("habitat-data/habitat-assessment-submitters.csv") %>%
   filter(fsn %in% results_in$fsn)
 
 # stations by fieldwork
-fieldwork_stns <- read_csv("habitat-data/habitat-assessment-stations.csv") %>%
+fieldwork_stns <-
+  list(
+    "habitat-data/WAV Habitat Stations 2015-2023.xlsx",
+    "habitat-data/WAV Habitat Stations 2024.xlsx"
+  ) %>%
+  lapply(readxl::read_excel) %>%
+  bind_rows() %>%
   clean_names() %>%
   select(
     fsn = fieldwork_seq_no,
     station_id,
     station_name = primary_station_name,
-    lat = calc_ll_lat_dd_amt,
-    long = calc_ll_long_dd_amt
+    latitude = calc_ll_lat_dd_amt,
+    longitude = calc_ll_long_dd_amt
   ) %>%
   mutate(station_id = as.numeric(station_id)) %>%
   distinct(fsn, .keep_all = T) %>%
@@ -62,18 +80,19 @@ fieldwork_stns <- read_csv("habitat-data/habitat-assessment-stations.csv") %>%
 
 stns <- fieldwork_stns %>%
   select(-fsn) %>%
-  distinct(station_id, station_name, lat, long) %>%
+  distinct(station_id, station_name, latitude, longitude) %>%
   arrange(station_id)
 
-wi_counties <- read_sf("shp/wi-county-bounds.geojson")
+wi_counties <- readRDS("shp/counties.rds") %>%
+  janitor::clean_names()
 
 stns.sf <- stns %>%
-  st_as_sf(coords = c("long", "lat"), crs = 4326, remove = F) %>%
-  st_join(select(wi_counties, dnr_region_name, county_name, geometry))
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = F) %>%
+  st_join(select(wi_counties, dnr_region, county_name, geometry))
 
 stn_counties <- stns.sf %>%
   st_set_geometry(NULL) %>%
-  select(station_id, dnr_region_name, county_name)
+  select(station_id, dnr_region, county_name)
 
 
 
@@ -224,13 +243,13 @@ county_totals <- fieldwork_info %>%
   summarize(
     n_stations = n_distinct(station_id),
     n_events = n_distinct(fsn),
-    .by = c(dnr_region_name, county_name)
+    .by = c(dnr_region, county_name)
   ) %>%
   arrange(desc(n_stations), county_name)
 
 # for ggplot
 wi_counties_hab_counts <- wi_counties %>%
-  select(region = dnr_region_name, county_name, geometry) %>%
+  select(region = dnr_region, county_name, geometry) %>%
   left_join(county_totals, join_by(county_name)) %>%
   mutate(across(county_name, ~paste(.x, "County")))
 
@@ -258,13 +277,14 @@ hab_data_wide <- hab_data %>%
 
 fw_points <- fieldwork_info %>%
   left_join(hab_data_wide) %>%
+  drop_na(latitude, longitude) %>%
   mutate(
     datetime = as.character(datetime),
     date = format(date, "%b %d, %Y"),
     popup = create_popup(pick(everything()), "<b>==== Habitat assessment ====</b>"),
     label = glue::glue("<b>{date}</b> <i>{fieldwork_comment}</i>", .na = "No comment"),
     label = gsub("\n", "<br>", str_wrap(label, 60), fixed = T)) %>%
-  st_as_sf(coords = c("long", "lat"), crs = 4326)
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
 
 stn_points <- fw_points %>%
   distinct(station_id, station_name, geometry) %>%
@@ -275,7 +295,7 @@ leaflet_counties <- wi_counties %>%
   left_join(county_totals) %>%
   mutate(label = glue::glue("
     <b>{county_name} County</b><br>
-    <i>{dnr_region_name}</i><br>
+    <i>{dnr_region}</i><br>
     {if_else(is.na(n_stations), 0, n_stations)} stations<br>
     {if_else(is.na(n_events), 0, n_events)} habitat assessments"))
 

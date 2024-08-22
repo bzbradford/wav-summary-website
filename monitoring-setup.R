@@ -8,24 +8,24 @@ library(leaflet)
 rm(list = ls())
 
 
-cur_year <- 2023
+cur_year <- 2024
 
 
 # Load data ----
 
 ## Stations and monitoring data ----
 
-stns <- readRDS("monitoring-data/station-list")
-baseline <- readRDS("monitoring-data/baseline-data")
-nutrient <- readRDS("monitoring-data/tp-data")
-therm <- readRDS("monitoring-data/therm-data")
-therm_info <- readRDS("monitoring-data/therm-inventory")
+stns <- readRDS("monitoring-data/station-list.rds")
+baseline <- readRDS("monitoring-data/baseline-data.rds")
+nutrient <- readRDS("monitoring-data/tp-data.rds")
+therm <- readRDS("monitoring-data/therm-data.rds")
+therm_info <- readRDS("monitoring-data/therm-inventory.rds")
 
 
 ## Shapefiles ----
 
-nkes <- readRDS("shp/nkes")
-counties <- readRDS("shp/counties") %>%
+nkes <- readRDS("shp/nkes.rds")
+counties <- readRDS("shp/counties.rds") %>%
   select(county_name = CountyName, geometry)
 state <- st_union(counties)
 wi_bbox <- state %>%
@@ -33,9 +33,9 @@ wi_bbox <- state %>%
   st_as_sfc() %>%
   st_buffer(10000) %>%
   st_bbox()
-huc8 <- readRDS("shp/huc8") %>% st_crop(wi_bbox)
-huc10 <- readRDS("shp/huc10") %>% st_crop(wi_bbox)
-huc12 <- readRDS("shp/huc12") %>% st_crop(wi_bbox)
+huc8 <- readRDS("shp/huc8.rds") %>% st_crop(wi_bbox)
+huc10 <- readRDS("shp/huc10.rds") %>% st_crop(wi_bbox)
+huc12 <- readRDS("shp/huc12.rds") %>% st_crop(wi_bbox)
 n_huc8 <- nrow(huc8)
 n_huc10 <- nrow(huc10)
 n_huc12 <- nrow(huc12)
@@ -54,6 +54,17 @@ great_lakes <- huc12 %>%
   mutate(Nearshore = T)
 
 # leaflet() %>% addTiles() %>% addPolygons(data = great_lakes)
+
+huc8_nearshore <- huc8 %>%
+  filter(!(Huc8Name %in% c("Lake Michigan", "Lake Superior"))) %>%
+  st_join(great_lakes) %>%
+  filter(Nearshore)
+
+# leaflet() %>%
+#   addTiles() %>%
+#   addPolygons(
+#     data = filter(huc10_nearshore, Nearshore),
+#     label = ~Huc10Name)
 
 huc10_nearshore <- huc10 %>%
   filter(!(Huc10Name %in% c("Lake Michigan", "Lake Superior", "Nodaway Point-Frontal Lake Superior"))) %>%
@@ -104,7 +115,7 @@ getPts <- function(df) {
 
 cur_baseline <- filter(baseline, year == cur_year)
 cur_nutrient <- filter(nutrient, year == cur_year)
-cur_therm <- filter(therm, year == cur_year)
+cur_therm <- filter(therm, year == max(year))
 
 # all stations monitored in the dataset
 all_pts <-
@@ -121,10 +132,12 @@ all_pts <-
     cur_therm = station_id %in% cur_therm$station_id,
     cur_any = cur_baseline | cur_nutrient | cur_therm
   ) %>%
+  drop_na(latitude, longitude) %>%
   getPts() %>%
   # nke plans overlap to have to dedupe
   st_join(select(nkes, NkePlan = PlanId, geometry)) %>%
   distinct(station_id, .keep_all = T) %>%
+  st_join(select(huc8_nearshore, Huc8Nearshore = Nearshore, geometry)) %>%
   st_join(select(huc10_nearshore, Huc10Nearshore = Nearshore, geometry)) %>%
   st_join(select(huc12_nearshore, Huc12Nearshore = Nearshore, geometry))
 
@@ -141,7 +154,9 @@ all_stns_by_year <-
   left_join(select(all_stns, station_id, county_name:Huc12Nearshore), join_by(station_id)) %>%
   arrange(year, station_id)
 
-
+all_pts_by_year <- all_stns_by_year %>%
+  drop_na(latitude, longitude) %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
 
 # Get volunteer counts ----
 
@@ -244,14 +259,14 @@ addCurPastPts <- function(cur_pts, past_pts, pt_color, title) {
   )
 }
 
-addPtsInOut <- function(pts_in, pts_out, pt_color, title) {
+addPtsInOut <- function(pts_in, pts_out, pt_color, title, yr = cur_year) {
   list(
     geom_sf(data = pts_out, aes(color = "Outside area"), fill = pt_color, size = .4),
     geom_sf(data = pts_in, aes(color = "Inside area"), fill = pt_color, shape = 21, size = 2.5),
     scale_color_manual(values = c("black", "black")),
     scale_fill_viridis_c(na.value = "grey90", limits = c(0, NA), option = "viridis"),
     labs(
-      title = sprintf("%s (%s)", title, cur_year),
+      title = sprintf("%s (%s)", title, yr),
       fill = "Stations in area",
       color = "Station locations"),
     guides(

@@ -43,9 +43,34 @@ Project RED (Riverine Early Detectors) is a volunteer AIS (Aquatic Invasive Spec
 
 ```{r}
 #| fig-height: 9
+counties_with_results <- wi_counties %>%
+  left_join({
+    ais_results %>%
+      filter(parameter_code == 20043) %>%
+      summarize(
+        years_monitored = paste(sort(unique(year)), collapse = ", "),
+        species_found = paste(sort(unique(result)), collapse = ", "),
+        years = n_distinct(year),
+        stations = n_distinct(station_id),
+        fieldwork = n_distinct(fsn),
+        species = n_distinct(result),
+        .by = county_name
+      )
+  }) %>%
+  mutate(popup = create_popups(.))
 
 leaflet() %>%
   addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(
+    data = counties_with_results,
+    label = ~if_else(
+      !is.na(species),
+      paste(county_name, "County - ", species, "species found"),
+      paste(county_name, "County - Not monitored")),
+    popup = ~popup,
+    color = "grey", weight = .5, opacity = .5,
+    fillColor = ~colorNumeric("viridis", species)(species), fillOpacity = .1
+  ) %>%
   addPolylines(
     data = stn_lines,
     label = ~ paste(station_id, station_name),
@@ -53,13 +78,17 @@ leaflet() %>%
   ) %>%
   addCircleMarkers(
     data = stn_pts,
-    label = ~ paste(station_id, station_name),
+    label = ~paste(station_id, station_name),
     radius = 3,
     color = "black", weight = 1, opacity = 1,
     fillColor = "orange", fillOpacity = 1
   ) %>%
   addMarkers(
     data = all_pts,
+    label = ~paste0(
+      "<b>Station ", station_id, ": ", station_name, "</b><br>",
+      "Fieldwork date: ", date, ", Waterbody monitored: ", `Waterbody Name`
+    ) %>% lapply(shiny::HTML),
     popup = ~popup,
     clusterOptions = markerClusterOptions()
   )
@@ -69,9 +98,7 @@ leaflet() %>%
 
 *Stations monitored for AIS at any time between 2008 and present are shown below.*
 
-```{r}
-#| fig-height: 7
-
+```{r fig.height=7}
 county_counts <- all_pts %>%
   st_set_geometry(NULL) %>%
   count(county_name)
@@ -91,6 +118,30 @@ ggplot() +
   )
 ```
 
+### AIS monitoring locations by year
+
+```{r fig.height=7}
+county_counts <- wi_counties %>%
+  left_join({
+    stn_pts_annual %>% st_set_geometry(NULL) %>% count(year, county_name)
+  }) %>% drop_na(year)
+
+ggplot() +
+  geom_sf(data = wi_counties) +
+  geom_sf(data = county_counts, aes(fill = n), alpha = .5) +
+  geom_sf(data = wi, fill = NA, lwd = .5) +
+  geom_sf(data = stn_pts_annual, shape = 24, fill = "orange", size = 1) +
+  scale_fill_viridis_c(na.value = "grey90") +
+  facet_wrap(~ year) +
+  labs(fill = "Stations per county") +
+  guides(fill = guide_colorsteps(frame.colour = "black", show.limits = T)) +
+  theme_void() +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(hjust = .5, margin = margin(t = 4, b = 4)),
+    strip.text = element_text(face = "bold", size = 12, margin = margin(t = 8, b = 2))
+  )
+```
 
 ## Participation summary
 
@@ -166,6 +217,21 @@ fieldwork_group_crossjoin %>%
   
 ```
 
+### Counties monitored per year
+
+```{r}
+fieldwork_group_crossjoin %>%
+  mutate(year = as.character(year)) %>%
+  summarize(n = n_distinct(county_name), .by = year) %>%
+  ggplot(aes(x = as.character(year), y = n)) +
+  geom_col(aes(fill = n), color = "black") +
+  geom_text(aes(label = n), vjust = -.5) +
+  scale_y_continuous(expand = expansion(c(0, .1))) +
+  scale_fill_viridis_c() +
+  labs(y = "Counties monitored", x = NULL) +
+  plt_theme
+```
+
 ## Fieldwork results summary
 
 ### What species are commonly looked for or not looked for?
@@ -183,7 +249,7 @@ ais_looked_for <- ais_results %>%
       str_replace("Did you look for ", "") %>%
       str_to_title()) %>%
   mutate(total = n_distinct(fsn)) %>%
-  summarize(n = n(), .by = c(parameter_name, result, total)) %>%
+  summarize(n = n(), .by = c(parameter_code, parameter_name, result, total)) %>%
   pivot_wider(names_from = result, values_from = n, values_fill = 0) %>%
   clean_names() %>%
   mutate(na = total - yes - no) %>%
@@ -204,19 +270,60 @@ ais_looked_for %>%
   ) %>%
   mutate(label = scales::percent(value, 1)) %>%
   ggplot(aes(x = value, y = parameter_name, fill = name)) +
-  geom_col(color = "white", position = position_stack(reverse = T)) +
+  geom_col(color = "white", lwd = .25, position = position_stack(reverse = T)) +
   geom_text(
     aes(label = label),
-    position = position_stack(vjust = .5, reverse = T)
-  ) +
+    position = position_stack(vjust = .5, reverse = T)) +
   scale_x_continuous(
     labels = scales::percent,
     expand = expansion(c(0, .05))) +
+  scale_fill_manual(values = c("#00ba38", "#f8766d", "#619cff")) +
   labs(
     y = NULL,
     x = glue("Percent of fieldwork (n = {ais_looked_for$total[1]})"),
-    fill = "Did you look for this AIS?"
-  ) +
+    fill = "Did you look for this AIS?") +
+  theme(
+    legend.position = "top",
+    panel.background = element_blank())
+```
+
+### Species looked for by year
+
+```{r fig.height=6}
+ais_looked_for <- ais_results %>%
+  filter(parameter_code %in% 91157:91172) %>%
+  mutate(
+    parameter_name = parameter_name %>%
+      str_replace("\\?", "") %>%
+      str_replace("Did you look for ", "") %>%
+      str_to_title()) %>%
+  mutate(total = n_distinct(fsn), .by = year) %>%
+  summarize(n = n(), .by = c(year, parameter_code, parameter_name, result, total)) %>%
+  pivot_wider(names_from = result, values_from = n, values_fill = 0) %>%
+  clean_names() %>%
+  mutate(na = total - yes - no) %>%
+  mutate(across(c(yes, no, na), ~ .x / total)) %>%
+  arrange(desc(yes)) %>%
+  mutate(parameter_name = fct_inorder(parameter_name))
+
+ais_looked_for %>%
+  pivot_longer(cols = c(yes, no, na)) %>%
+  mutate(
+    answer = name %>%
+      case_match("yes" ~ "Yes", "no" ~ "No", "na" ~ "No answer") %>%
+      factor(levels = c("Yes", "No", "No answer"))) %>%
+  mutate(label = scales::percent(value, 1)) %>%
+  ggplot(aes(x = year, y = value, fill = answer)) +
+  geom_area(color = "white", lwd = .25) +
+  scale_y_continuous(
+    labels = scales::percent,
+    expand = expansion(c(0, .05))) +
+  scale_fill_manual(values = c("#00ba38", "#f8766d", "#619cff")) +
+  facet_wrap(~parameter_name) +
+  labs(
+    x = "Year",
+    y = str_glue("Percent of fieldwork"),
+    fill = "Did you look for this AIS?") +
   theme(
     legend.position = "top",
     panel.background = element_blank())
@@ -297,6 +404,45 @@ ais_found %>%
   )) %>%
   gt() %>%
   cols_label_with(fn = html)
+```
+
+### AIS found by year
+
+```{r}
+ais_results %>%
+  filter(parameter_code == 20043) %>%
+  summarize(
+    `Counties monitored` = paste(sort(unique(na.omit(county_name))), collapse = ", "),
+    `Species found` = paste(sort(unique(result)), collapse = ", "),
+    Counties = n_distinct(county_name),
+    Stations = n_distinct(station_id),
+    Fieldwork = n_distinct(fsn),
+    Species = n_distinct(result),
+    .by = year
+  ) %>%
+  arrange(year) %>%
+  rename(Year = year) %>%
+  gt()
+```
+
+### AIS found by county
+
+```{r}
+ais_results %>%
+  filter(parameter_code == 20043) %>%
+  drop_na(county_name) %>%
+  summarize(
+    `Years monitored` = paste(sort(unique(year)), collapse = ", "),
+    `Species found` = paste(sort(unique(result)), collapse = ", "),
+    Years = n_distinct(year),
+    Stations = n_distinct(station_id),
+    Fieldwork = n_distinct(fsn),
+    Species = n_distinct(result),
+    .by = county_name
+  ) %>%
+  arrange(county_name) %>%
+  rename(`County` = county_name) %>%
+  gt()
 ```
 
 ## SWIMS parameters associated with AIS fieldwork

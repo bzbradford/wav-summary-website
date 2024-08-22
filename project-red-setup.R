@@ -12,7 +12,12 @@ rm(list = ls())
 # Load data ----
 
 ais_results <-
-  readxl::read_excel("project-red-data/wav project red_no collector.xlsx") %>%
+  list(
+    "project-red-data/WAV Project RED 2008-2023.xlsx",
+    "project-red-data/WAV Project RED 2024.xlsx"
+  ) %>%
+  lapply(readxl::read_excel, na = c("", "NA")) %>%
+  bind_rows() %>%
   clean_names() %>%
   rename(
     fsn = fieldwork_seq_no,
@@ -45,9 +50,17 @@ fieldwork_events <- ais_results %>%
   select(-sample_header, -starts_with("parameter"), -starts_with("result")) %>%
   distinct()
 
-dnr_parameters <- ais_results %>%
+dnr_parameter_names <- ais_results %>%
   count(parameter_code, parameter_name) %>%
-  filter(n > 1)
+  filter(n > 1) %>%
+  drop_na() %>%
+  select(-n)
+
+dnr_parameters <- ais_results %>%
+  select(parameter_code) %>%
+  left_join(dnr_parameter_names) %>%
+  drop_na(parameter_name) %>%
+  count(parameter_code, parameter_name)
 
 results_wide <- ais_results %>%
   filter(parameter_code %in% dnr_parameters$parameter_code) %>%
@@ -56,7 +69,7 @@ results_wide <- ais_results %>%
   pivot_wider(names_from = parameter_name, values_from = result, values_fn = ~ paste(.x, collapse = ", "))
 
 ais_groups <-
-  readxl::read_excel("project-red-data/wav project red_collector.xlsx") %>%
+  readxl::read_excel("project-red-data/WAV Project RED IP 2008-2024.xlsx") %>%
   clean_names() %>%
   select(-sample_comment) %>%
   mutate(full_name = case_when(
@@ -76,14 +89,15 @@ annual_counts <- fieldwork_group_crossjoin %>%
 
 year_labels <- annual_counts %>%
   summarize(n_stations = n_distinct(station_id), n_fieldwork = sum(n_fieldwork), .by = year) %>%
-  mutate(year_label = glue::glue("{year}\nStations: {n_stations}\nFieldwork events: {n_fieldwork}")) %>%
+  mutate(year_label = str_glue("{year}\nStations: {n_stations}\nFieldwork events: {n_fieldwork}")) %>%
   select(year, year_label)
 
 
 
 # Load points and lines ----
 
-wi_counties <- read_sf("shp/wi-county-bounds.geojson") %>%
+wi_counties <- readRDS("shp/counties.rds") %>%
+  clean_names() %>%
   rmapshaper::ms_simplify(.1)
 
 wi <- wi_counties %>%
@@ -96,6 +110,7 @@ stn_pts <- read_csv("project-red-data/swims-monitoring-stations.csv.gz") %>%
     station_name = primary_station_name,
     latitude,
     longitude,
+    county_name,
     wbic,
     waterbody_name = official_waterbody_name,
     station_type = station_type_code) %>%
@@ -144,11 +159,12 @@ create_popups <- function(df) {
   title <- "<b><u>Fieldwork Detail</u></b><br>"
   df <- df %>% st_set_geometry(NULL)
   cols <- names(df)
+  col_labels <- make_clean_names(cols, case = "sentence")
   lapply(1:nrow(df), function(r) {
     row <- df[r,]
     details <-
       lapply(1:length(cols), function(c) {
-        paste0("<b>", cols[c], ":</b> ", row[c])
+        paste0("<b>", col_labels[c], ":</b> ", row[c])
       }) %>%
       paste0(collapse = "<br>")
     paste0(title, details)
@@ -156,17 +172,15 @@ create_popups <- function(df) {
 }
 
 all_pts <-
-  bind_rows(
-    stn_pts,
-    st_centroid(stn_lines)
-  ) %>%
-  left_join(
+  bind_rows(stn_pts, st_centroid(stn_lines)) %>%
+  left_join({
     fieldwork_events %>%
       summarize(
         years_monitored = paste(sort(year), collapse = ", "),
         .by = station_id
       )
-  ) %>%
+  }) %>%
+  select(-county_name) %>%
   st_join(wi_counties %>% select(county_name, geometry)) %>%
   left_join(results_wide) %>%
   mutate(date = as.character(date))
