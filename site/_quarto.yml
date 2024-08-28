@@ -12,6 +12,7 @@ website:
       - annual-monitoring-summary.qmd
       - habitat-assessment-summary.qmd
       - project-red-summary.qmd
+      - snapshot-day-summary.qmd
 
 format:
   html:

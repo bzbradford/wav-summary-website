@@ -13,8 +13,8 @@ rm(list = ls())
 
 ais_results <-
   list(
-    "project-red-data/WAV Project RED 2008-2023.xlsx",
-    "project-red-data/WAV Project RED 2024.xlsx"
+    "data-ais-project-red/WAV Project RED 2008-2023.xlsx",
+    "data-ais-project-red/WAV Project RED 2024.xlsx"
   ) %>%
   lapply(readxl::read_excel, na = c("", "NA")) %>%
   bind_rows() %>%
@@ -69,7 +69,7 @@ results_wide <- ais_results %>%
   pivot_wider(names_from = parameter_name, values_from = result, values_fn = ~ paste(.x, collapse = ", "))
 
 ais_groups <-
-  readxl::read_excel("project-red-data/WAV Project RED IP 2008-2024.xlsx") %>%
+  readxl::read_excel("data-ais-project-red/WAV Project RED IP 2008-2024.xlsx") %>%
   clean_names() %>%
   select(-sample_comment) %>%
   mutate(full_name = case_when(
@@ -103,7 +103,7 @@ wi_counties <- readRDS("shp/counties.rds") %>%
 wi <- wi_counties %>%
   st_union()
 
-stn_pts <- read_csv("project-red-data/swims-monitoring-stations.csv.gz") %>%
+stn_pts <- read_csv("data-ais-project-red/swims-monitoring-stations.csv.gz") %>%
   clean_names() %>%
   select(
     station_id,
@@ -119,7 +119,7 @@ stn_pts <- read_csv("project-red-data/swims-monitoring-stations.csv.gz") %>%
   drop_na() %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
 
-load("project-red-data/REDlines.Rda")
+load("data-ais-project-red/REDlines.Rda")
 stn_lines <- lapply(RED, st_as_sf) %>%
   bind_rows() %>%
   clean_names() %>%

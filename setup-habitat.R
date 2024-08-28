@@ -12,8 +12,8 @@ rm(list = ls())
 # fieldwork results
 results_in <-
   list(
-    "habitat-data/WAV Habitat Results 2015-2023.xlsx",
-    "habitat-data/WAV Habitat Results 2024.xlsx"
+    "data-habitat/WAV Habitat Results 2015-2023.xlsx",
+    "data-habitat/WAV Habitat Results 2024.xlsx"
   ) %>%
   lapply(readxl::read_excel) %>%
   bind_rows() %>%
@@ -31,8 +31,8 @@ results_in <-
 # submitters by fieldwork
 submitters_in <-
   list(
-    "habitat-data/WAV Habitat Submitters 2015-2023.xlsx",
-    "habitat-data/WAV Habitat Submitters 2024.xlsx"
+    "data-habitat/WAV Habitat Submitters 2015-2023.xlsx",
+    "data-habitat/WAV Habitat Submitters 2024.xlsx"
   ) %>%
   lapply(readxl::read_excel) %>%
   bind_rows() %>%
@@ -60,8 +60,8 @@ submitters_in <-
 # stations by fieldwork
 fieldwork_stns <-
   list(
-    "habitat-data/WAV Habitat Stations 2015-2023.xlsx",
-    "habitat-data/WAV Habitat Stations 2024.xlsx"
+    "data-habitat/WAV Habitat Stations 2015-2023.xlsx",
+    "data-habitat/WAV Habitat Stations 2024.xlsx"
   ) %>%
   lapply(readxl::read_excel) %>%
   bind_rows() %>%
@@ -214,7 +214,7 @@ hab_fsn_less10_complete <- sort(unique(hab_data_less10_complete$fsn))
 #   write_csv("habitat-assessment-score-types.csv")
 
 # should have created the csv below with `score_name` column
-hab_score_names <- read_csv("habitat-data/habitat-assessment-score-reference.csv") %>%
+hab_score_names <- read_csv("data-habitat/habitat-assessment-score-reference.csv") %>%
   select(-parameter_description)
 
 # for plot and some summary stuff

@@ -1,12 +1,12 @@
 ---
-title: |
-  | ![](header.png)
-  | 
-  | WAV Monitoring Summaries
 format:
   html:
     pagetitle: "Monitoring Summaries - Water Action Volunteers"
 ---
+
+![](header.png)
+
+# WAV Monitoring Summaries
 
 The [**Water Action Volunteers (WAV)**](https://wateractionvolunteers.org/){target="_blank"} program is a statewide network of citizen scientist volunteers committed to monitoring as much of Wisconsin's 86,000+ miles of streams and rivers as possible.
 
@@ -27,3 +27,5 @@ We also have a few special summaries of WAV data including some data that isn't 
 -   [**Habitat Assessment Summary**](habitat-assessment-summary.qmd)
 
 -   [**Project RED AIS Monitoring Summary**](project-red-summary.qmd)
+
+-   [**Snapshot Day AIS Monitoring Summary**](snapshot-day-summary.qmd)

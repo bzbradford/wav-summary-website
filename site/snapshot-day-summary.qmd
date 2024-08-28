@@ -1,8 +1,8 @@
 ---
-title: "Project RED AIS Monitoring Summary"
+title: "Snapshot Day AIS Monitoring Summary"
 format:
   html:
-    pagetitle: "AIS Monitoring Summary - Water Action Volunteers"
+    pagetitle: "Snapshot Day AIS Monitoring Summary - Water Action Volunteers"
     toc: true
     toc-expand: true
     echo: true
@@ -25,7 +25,7 @@ library(gt)
 
 knitr::opts_chunk$set(dev = "png", dev.args = list(type = "cairo-png"))
 
-load("project-red-summary.RData")
+load("snapshot-day-summary.RData")
 
 plt_theme <- theme(
   axis.text.x = element_text(face = "bold", size = 10),
@@ -35,68 +35,64 @@ plt_theme <- theme(
 
 ```
 
-Project RED (Riverine Early Detectors) is a volunteer AIS (Aquatic Invasive Species) monitoring program. Visit [Water Action Volunteers](https://wateractionvolunteers.org/){target="_blank"} for more information.
+Snapshot Day is a volunteer AIS (Aquatic Invasive Species) monitoring program. Visit [Water Action Volunteers](https://wateractionvolunteers.org/){target="_blank"} for more information.
 
 ## Interactive map
 
-*This map shows all point stations and river segments that were monitored at least once for AIS between 2008 and present. River segments are shown as red lines and point stations are shown as orange circles. Individual fieldwork events are shown as blue pins or numbered groups when zoomed out. Click on a blue pin to get more information about an AIS fieldwork event.*
+*This map shows all locations that were monitored at least once for AIS on a Snapshot Day. Individual fieldwork events are shown as blue markers when no AIS was found, or orange markers when at least one AIS species was reported present. Click on a marker to get more information about an AIS fieldwork event.*
 
 ```{r}
 #| fig-height: 9
-counties_with_results <- wi_counties %>%
-  left_join({
-    ais_results %>%
-      filter(parameter_code == 20043) %>%
-      summarize(
-        years_monitored = paste(sort(unique(year)), collapse = ", "),
-        species_found = paste(sort(unique(result)), collapse = ", "),
-        years = n_distinct(year),
-        stations = n_distinct(station_id),
-        fieldwork = n_distinct(fsn),
-        species = n_distinct(result),
-        .by = county_name
+county_shapes <- wi_counties %>%
+  left_join(county_ais_summary) %>%
+  mutate(popup = create_popups(.)) %>%
+  mutate(label = paste0(
+      "<b>", county_name, " County</b> - ",
+      if_else(
+        is.na(species),
+        "Not monitored",
+        paste0(species, " species found<br>Species: ", str_wrap_html(species_found))
       )
-  }) %>%
-  mutate(popup = create_popups(.))
+    ) %>% lapply(shiny::HTML)
+  )
+
+ais_pts_labelled <- ais_pts %>%
+  mutate(label = paste0(
+      "<b>Station ", station_id, ": ", station_name, "</b><br>",
+      "Fieldwork date: ", date, ", Waterbody monitored: ", waterbody_name, "<br>",
+      "Species found: ", str_wrap_html(species_found), "<br>",
+      "Fieldwork comment: ", str_wrap_html(fieldwork_comment)
+    ) %>% lapply(shiny::HTML)
+  )
 
 leaflet() %>%
   addProviderTiles(providers$CartoDB.Positron) %>%
   addPolygons(
-    data = counties_with_results,
-    label = ~if_else(
-      !is.na(species),
-      paste(county_name, "County - ", species, "species found"),
-      paste(county_name, "County - Not monitored")),
+    data = county_shapes,
+    label = ~label,
     popup = ~popup,
     color = "grey", weight = .5, opacity = .5,
     fillColor = ~colorNumeric("viridis", species)(species), fillOpacity = .1
   ) %>%
-  addPolylines(
-    data = stn_lines,
-    label = ~ paste(station_id, station_name),
-    color = "darkred", opacity = 1
-  ) %>%
   addCircleMarkers(
-    data = stn_pts,
-    label = ~paste(station_id, station_name),
-    radius = 3,
+    data = ais_pts_labelled %>% filter(n_species == 0),
+    label = ~label, popup = ~popup,
+    radius = 4,
+    color = "black", weight = 1, opacity = 1,
+    fillColor = "skyblue", fillOpacity = 1
+  ) %>%
+    addCircleMarkers(
+    data = ais_pts_labelled %>% filter(n_species > 0),
+    label = ~label, popup = ~popup,
+    radius = 4,
     color = "black", weight = 1, opacity = 1,
     fillColor = "orange", fillOpacity = 1
-  ) %>%
-  addMarkers(
-    data = all_pts,
-    label = ~paste0(
-      "<b>Station ", station_id, ": ", station_name, "</b><br>",
-      "Fieldwork date: ", date, ", Waterbody monitored: ", `Waterbody Name`
-    ) %>% lapply(shiny::HTML),
-    popup = ~popup,
-    clusterOptions = markerClusterOptions()
   )
 ```
 
 ## Static map
 
-*Stations monitored for AIS at any time between 2008 and present are shown below.*
+*Stations monitored for AIS at any time between 2014 and present are shown below.*
 
 ```{r fig.height=7}
 county_counts <- all_pts %>%
@@ -105,17 +101,18 @@ county_counts <- all_pts %>%
 
 ggplot() +
   geom_sf(data = wi_counties) +
-  geom_sf(data = wi_counties %>%
-      left_join(county_counts), aes(fill = n), alpha = .5) +
+  geom_sf(
+    data = wi_counties %>%
+      left_join(county_counts) %>%
+      drop_na(),
+    aes(fill = n), alpha = .5) +
   geom_sf(data = wi, fill = NA, lwd = .75) +
   geom_sf_text(data = wi_counties, aes(label = county_name), angle = 15, size = 2, alpha = .5) +
-  geom_sf(data = all_pts, shape = 24, fill = "orange", size = 3) +
+  geom_sf(data = filter(ais_pts, n_species == 0), fill = "skyblue", shape = 24, size = 2.5) +
+  geom_sf(data = filter(ais_pts, n_species > 0), fill = "orange", shape = 24, size = 3) +
   scale_fill_viridis_c(na.value = "grey90") +
   labs(fill = "Stations\nin county\n") +
-  theme_void() +
-  guides(
-    fill = guide_colorsteps(frame.colour = "black", show.limits = T)
-  )
+  theme_void()
 ```
 
 ### AIS monitoring locations by year
@@ -150,7 +147,7 @@ ggplot() +
 *Fieldwork events represent a complete data submission to the SWIMS system, identified by a fieldwork sequence number (fsn).*
 
 ```{r}
-fieldwork_group_crossjoin %>%
+fieldwork_events %>%
   mutate(year = as.character(year)) %>%
   summarize(n = n_distinct(fsn), .by = year) %>%
   ggplot(aes(x = year, y = n, fill = n, label = n)) +
@@ -168,7 +165,7 @@ fieldwork_group_crossjoin %>%
 *SWIMS stations may be point stations or river/stream segments identified by a station id.*
 
 ```{r}
-fieldwork_group_crossjoin %>%
+fieldwork_events %>%
   mutate(year = as.character(year)) %>%
   summarize(n = n_distinct(station_id), .by = year) %>%
   ggplot(aes(x = year, y = n, fill = n, label = n)) +
@@ -186,7 +183,7 @@ fieldwork_group_crossjoin %>%
 *Waterbodies are differentiated by a unique WBIC.*
 
 ```{r}
-fieldwork_group_crossjoin %>%
+fieldwork_events %>%
   mutate(year = as.character(year)) %>%
   summarize(n = n_distinct(wbic), .by = year) %>%
   ggplot(aes(x = year, y = n, fill = n, label = n)) +
@@ -204,9 +201,9 @@ fieldwork_group_crossjoin %>%
 *Volunteer counts are determined by unique full names tagged to a fieldwork event by a data submitter group id.*
 
 ```{r}
-fieldwork_group_crossjoin %>%
+ais_groups %>%
   mutate(year = as.character(year)) %>%
-  summarize(n = n_distinct(full_name), .by = year) %>%
+  summarize(n = n_distinct(name), .by = year) %>%
   ggplot(aes(x = year, y = n, fill = n, label = n)) +
   geom_col(color = "black") +
   geom_text(vjust = -1) +
@@ -220,7 +217,7 @@ fieldwork_group_crossjoin %>%
 ### Counties monitored per year
 
 ```{r}
-fieldwork_group_crossjoin %>%
+fieldwork_events %>%
   mutate(year = as.character(year)) %>%
   summarize(n = n_distinct(county_name), .by = year) %>%
   ggplot(aes(x = as.character(year), y = n)) +
@@ -249,9 +246,9 @@ ais_looked_for <- ais_results %>%
       str_replace("Did you look for ", "") %>%
       str_to_title()) %>%
   mutate(total = n_distinct(fsn)) %>%
+  mutate(result = tolower(result)) %>%
   summarize(n = n(), .by = c(parameter_code, parameter_name, result, total)) %>%
   pivot_wider(names_from = result, values_from = n, values_fill = 0) %>%
-  clean_names() %>%
   mutate(na = total - yes - no) %>%
   mutate(across(c(yes, no, na), ~ .x / total)) %>%
   arrange(desc(yes)) %>%
@@ -297,14 +294,15 @@ ais_looked_for <- ais_results %>%
       str_replace("\\?", "") %>%
       str_replace("Did you look for ", "") %>%
       str_to_title()) %>%
+  mutate(result = tolower(result)) %>%
   mutate(total = n_distinct(fsn), .by = year) %>%
   summarize(n = n(), .by = c(year, parameter_code, parameter_name, result, total)) %>%
   pivot_wider(names_from = result, values_from = n, values_fill = 0) %>%
-  clean_names() %>%
   mutate(na = total - yes - no) %>%
   mutate(across(c(yes, no, na), ~ .x / total)) %>%
   arrange(desc(yes)) %>%
-  mutate(parameter_name = fct_inorder(parameter_name))
+  mutate(parameter_name = fct_inorder(parameter_name)) %>%
+  mutate(year = as.character(year))
 
 ais_looked_for %>%
   pivot_longer(cols = c(yes, no, na)) %>%
@@ -456,5 +454,5 @@ dnr_parameters %>%
 ```
 
 ::: {style="margin-top: 4em; border-top: 1px solid grey; color: grey; font-size: small"}
-*Project RED summary developed by Ben Bradford (UW-Madison Entomology) and Emily Heald (Rivers Educator, UW-Extension NRI). Data courtesy Wisconsin DNR with special thanks to Justin Chenevert.*
+*AIS Snapshot Day summary developed by Ben Bradford (UW-Madison Entomology) and Emily Heald (Rivers Educator, UW-Extension NRI). Data courtesy Wisconsin DNR.*
 :::

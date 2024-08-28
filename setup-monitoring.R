@@ -15,11 +15,11 @@ cur_year <- 2024
 
 ## Stations and monitoring data ----
 
-stns <- readRDS("monitoring-data/station-list.rds")
-baseline <- readRDS("monitoring-data/baseline-data.rds")
-nutrient <- readRDS("monitoring-data/tp-data.rds")
-therm <- readRDS("monitoring-data/therm-data.rds")
-therm_info <- readRDS("monitoring-data/therm-inventory.rds")
+stns <- readRDS("data-monitoring/station-list.rds")
+baseline <- readRDS("data-monitoring/baseline-data.rds")
+nutrient <- readRDS("data-monitoring/tp-data.rds")
+therm <- readRDS("data-monitoring/therm-data.rds")
+therm_info <- readRDS("data-monitoring/therm-inventory.rds")
 
 
 ## Shapefiles ----
