@@ -3,25 +3,23 @@ library(tidyverse)
 library(readxl)
 library(sf)
 library(leaflet)
+library(leaflet.extras)
 library(janitor)
-library(glue)
 library(gt)
+library(DT)
 
 rm(list = ls())
 
 create_popups <- function(df) {
-  title <- "<b><u>Fieldwork Detail</u></b><br>"
   df <- df %>% st_set_geometry(NULL)
   cols <- names(df)
   col_labels <- make_clean_names(cols, case = "sentence")
   lapply(1:nrow(df), function(r) {
     row <- df[r,]
-    details <-
-      lapply(1:length(cols), function(c) {
-        paste0("<b>", col_labels[c], ":</b> ", row[c])
-      }) %>%
-      paste0(collapse = "<br>")
-    paste0(title, details)
+    lapply(1:length(cols), function(c) {
+      paste0("<b>", col_labels[c], ":</b> ", row[c])
+    }) %>%
+    paste0(collapse = "<br>")
   }) %>% paste0()
 }
 
@@ -33,15 +31,35 @@ str_wrap_html <- function(str) {
   str_wrap(str) %>% str_replace_all("\n", "<br>")
 }
 
+to_summary_list <- function(x, count = FALSE) {
+  x <- na.omit(x)
+  paste0(
+    { if (count) paste0("(", n_distinct(x), ") ") },
+    paste(sort(unique(x)), collapse = ", ")
+  )
+}
 
-# Load data ----
+n_distinct2 <- function(...) {
+  n_distinct(..., na.rm = TRUE)
+}
+
+
+# Load shapefiles ----
 
 wi_counties <- readRDS("shp/counties.rds") %>%
   clean_names() %>%
+  rename(county = county_name) %>%
   rmapshaper::ms_simplify(.1)
 
 wi <- wi_counties %>%
   st_union()
+
+watersheds <- read_rds("shp/dnr_watersheds.rds") %>%
+  clean_names()
+
+
+
+# WBIC sheet ----
 
 wbic_ais <-
   read_excel("data-ais-snapshot-day/WatersWithAIS.xlsx") %>%
@@ -53,25 +71,28 @@ wbic_ais <-
   ) %>%
   mutate(
     wbic = as.numeric(wbic),
-    county_name = if_else(is.na(wbic), waterbody_name, NA) %>%
+    county = if_else(is.na(wbic), waterbody_name, NA) %>%
       str_replace_all("\\s\\(", "_") %>%
       str_split_i("_", 1) %>%
       str_replace_all(" County", ""),
     .after = waterbody_name
   ) %>%
-  fill(county_name) %>%
+  fill(county) %>%
   drop_na(wbic)
 
 wbic_names <- wbic_ais %>% distinct(wbic, waterbody_name)
 
-county_ais <- wbic_ais %>%
+wbic_ais_county <- wbic_ais %>%
   reframe(
     invasive_species = paste(invasive_species, collapse = ", ") %>%
       str_split(", ") %>%
       unlist() %>%
       sort(),
-    .by = c(county_name, wbic, waterbody_name)
+    .by = c(county, wbic, waterbody_name)
   )
+
+
+# Load data ----
 
 snapshot_years <- 2014:2024
 ais_results <-
@@ -105,14 +126,39 @@ ais_results <-
   arrange(fsn, parameter_code) %>%
   to_sf() %>%
   st_join(wi_counties, join = st_nearest_feature) %>%
+  st_join(select(watersheds, dnr_watershed_code, dnr_watershed_name)) %>%
   st_drop_geometry()
+
+# only species IDs
+ais_finds <- ais_results %>%
+  filter(parameter_code == 20043) %>%
+  drop_na(result)
+
+
+## Fieldwork ----
 
 fieldwork_events <- ais_results %>%
   select(-c("parameter_name", "parameter_code", "result")) %>%
   distinct()
 
-ais_pts <- ais_results %>%
-  filter(parameter_code == 20043) %>%
+
+## Volunteers ----
+
+ais_groups <- ais_results %>%
+  reframe(
+    name = group_desc %>%
+      str_split(" , ") %>% unlist() %>%
+      str_split(", ") %>% unlist() %>%
+      str_split(" and ") %>% unlist(),
+    .by = c(year, fsn)
+  ) %>%
+  distinct() %>%
+  mutate(group_size = n_distinct(name), .by = fsn)
+
+
+## Make points ----
+
+ais_pts <- ais_finds %>%
   summarize(
     n_species = n_distinct(result),
     species_found = paste(sort(unique(result)), collapse = ", "),
@@ -125,34 +171,115 @@ ais_pts <- ais_results %>%
   to_sf() %>%
   mutate(popup = create_popups(.))
 
-stn_counties <- ais_pts %>%
-  distinct(station_id, county_name)
 
-fieldwork_by_county <- fieldwork_events %>%
-  summarize(
-    years_monitored = paste(sort(unique(year)), collapse = ", "),
-    years = n_distinct(year),
-    waterbodies = n_distinct(wbic),
-    stations = n_distinct(station_id),
-    fieldwork = n_distinct(fsn),
-    .by = county_name
-  )
+## Fieldwork by county ----
 
-county_ais_summary <- ais_results %>%
-  filter(parameter_code == 20043) %>%
+county_ais_summary <- {
+  sumfn <- function(.data) {
+    summarize(
+      .data,
+      years_monitored = to_summary_list(year),
+      years = n_distinct2(year),
+      watersheds = n_distinct2(dnr_watershed_code),
+      waterbodies = n_distinct2(wbic),
+      stations = n_distinct2(station_id),
+      fieldwork = n_distinct2(fsn),
+      .by = county
+    )
+  }
+
+  found <- ais_finds %>% sumfn()
+  looked_for <- fieldwork_events %>% sumfn()
+  sp_list <- ais_finds %>%
+    summarize(
+      species = n_distinct2(result),
+      species_found = to_summary_list(result),
+      .by = county
+    )
+
+  bind_rows(found, looked_for) %>%
+    distinct(county, .keep_all = T) %>%
+    left_join(sp_list) %>%
+    replace_na(list(species_found = "None", species = 0)) %>%
+    arrange(county)
+}
+
+
+## Fieldwork by watershed ----
+
+watershed_ais_summary <- {
+  sumfn <- function(.data) {
+    summarize(
+      .data,
+      years_monitored = to_summary_list(year),
+      years = n_distinct2(year),
+      waterbodies = n_distinct2(wbic),
+      stations = n_distinct2(station_id),
+      fieldwork = n_distinct2(fsn),
+      .by = c(dnr_watershed_code, dnr_watershed_name)
+    )
+  }
+
+  found <- ais_finds %>% sumfn()
+  looked_for <- fieldwork_events %>% sumfn()
+  sp_list <- ais_finds %>%
+    summarize(
+      species = n_distinct2(result),
+      species_found = to_summary_list(result),
+      .by = c(dnr_watershed_code, dnr_watershed_name)
+    )
+
+  bind_rows(found, looked_for) %>%
+    distinct(dnr_watershed_code, dnr_watershed_name, .keep_all = T) %>%
+    left_join(sp_list) %>%
+    replace_na(list(species_found = "None", species = 0))
+}
+
+
+## New vs existing AIS identifications ----
+
+new_ais_by_site <- ais_finds %>%
+  distinct(station_id, year, result) %>%
+  mutate(first_report = min(year), .by = c(station_id, result)) %>%
+  mutate(id_type = if_else(year == first_report, "new", "existing")) %>%
+  summarize(sites = n_distinct(station_id), .by = c(result, year, id_type)) %>%
+  mutate(total_annual_sites = sum(sites), .by = c(result, year))
+
+new_ais_by_waterbody <- ais_finds %>%
+  drop_na(wbic) %>%
+  distinct(wbic, waterbody_name, station_id, year, result) %>%
+  mutate(first_report = min(year), .by = c(wbic, result)) %>%
+  mutate(id_type = if_else(year == first_report, "new", "existing")) %>%
   summarize(
-    years_monitored = paste(sort(unique(year)), collapse = ", "),
-    species_found = paste(sort(unique(result)), collapse = ", "),
-    years = n_distinct(year),
     waterbodies = n_distinct(wbic),
-    stations = n_distinct(station_id),
-    fieldwork = n_distinct(fsn),
-    species = n_distinct(result),
-    .by = county_name
-  ) %>%
-  bind_rows(fieldwork_by_county) %>%
-  distinct(county_name, .keep_all = T) %>%
-  replace_na(list(species_found = "None", species = 0))
+    waterbody_codes = to_summary_list(wbic),
+    waterbody_names = to_summary_list(waterbody_name),
+    .by = c(result, year, id_type)) %>%
+  mutate(total_annual_waterbodies = sum(waterbodies), .by = c(result, year))
+
+new_ais_by_watershed <- ais_finds %>%
+  distinct(dnr_watershed_code, dnr_watershed_name, year, result) %>%
+  mutate(first_report = min(year), .by = c(dnr_watershed_code, result)) %>%
+  mutate(id_type = if_else(year == first_report, "new", "existing")) %>%
+  summarize(
+    watersheds = n_distinct(dnr_watershed_code),
+    watershed_codes = to_summary_list(dnr_watershed_code, count = F),
+    watershed_names = to_summary_list(dnr_watershed_name, count = F),
+    .by = c(result, year, id_type)) %>%
+  mutate(total_annual_watersheds = sum(watersheds), .by = c(result, year))
+
+new_ais_by_county <- ais_finds %>%
+  distinct(county, station_id, year, result) %>%
+  mutate(first_report = min(year), .by = c(county, result)) %>%
+  mutate(id_type = if_else(year == first_report, "new", "existing")) %>%
+  summarize(
+    counties = n_distinct(county),
+    county_names = paste(sort(unique(county)), collapse = ", "),
+    .by = c(result, year, id_type)) %>%
+  mutate(total_annual_counties = sum(counties), .by = c(result, year))
+
+
+## DNR parameters ----
 
 dnr_parameter_names <- ais_results %>%
   count(parameter_code, parameter_name) %>%
@@ -166,69 +293,15 @@ dnr_parameters <- ais_results %>%
   drop_na(parameter_name) %>%
   count(parameter_code, parameter_name)
 
-results_wide <- ais_results %>%
-  filter(parameter_code %in% dnr_parameters$parameter_code) %>%
-  select(station_id, fsn, date, parameter_name, result) %>%
-  distinct() %>%
-  pivot_wider(names_from = parameter_name, values_from = result, values_fn = ~ paste(.x, collapse = ", "))
 
-ais_groups <-
-  ais_results %>%
-  reframe(
-    name = unlist(str_split(group_desc, " , ")),
-    .by = c(year, fsn)
-  ) %>%
-  distinct() %>%
-  mutate(group_size = n_distinct(name), .by = fsn)
+## Export data ----
 
-annual_counts <- ais_results %>%
-  summarize(n_fieldwork = n_distinct(fsn), .by = c(station_id, year)) %>%
-  arrange(year)
-
-year_labels <- annual_counts %>%
-  summarize(n_stations = n_distinct(station_id), n_fieldwork = sum(n_fieldwork), .by = year) %>%
-  mutate(year_label = str_glue("{year}\nStations: {n_stations}\nFieldwork events: {n_fieldwork}")) %>%
-  select(year, year_label)
-
-
-
-# Stations ----
-
-stn_pts <- ais_pts %>%
-  distinct(
-    station_id,
-    station_name,
-    latitude,
-    longitude,
-    county_name,
-    wbic,
-    waterbody_name,
-    station_type
-  ) %>%
-  st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = F) %>%
-  mutate(popup = create_popups(.))
-
-stn_pts_annual <- stn_pts %>%
-  left_join(annual_counts) %>%
-  left_join(year_labels)
-
-# ggplot() +
-#   geom_sf(data = wi) +
-#   geom_sf(data = stn_pts)
-
-all_pts <- stn_pts %>%
-  left_join({
-    fieldwork_events %>%
-      summarize(
-        years_monitored = paste(sort(year), collapse = ", "),
-        .by = station_id
-      )
-  }) %>%
-  select(-county_name) %>%
-  st_join(wi_counties %>% select(county_name, geometry)) %>%
-  left_join(results_wide) %>%
-  mutate(date = as.character(date)) %>%
-  mutate(popup = create_popups(.))
+ais_results %>%
+  write_csv(str_glue("exports/Snapshot day - all results {Sys.Date()}.csv"))
+ais_finds %>%
+  write_csv(str_glue("exports/Snapshot day - positive finds {Sys.Date()}.csv"))
+ais_groups %>%
+  write_csv(str_glue("exports/Snapshot day - volunteer names {Sys.Date()}.csv"))
 
 
 ## Save image ----

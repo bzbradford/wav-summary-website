@@ -18,9 +18,17 @@ format:
   html:
     theme: cosmo
     css: styles.css
+    toc: true
+    toc-expand: true
+    fig-align: center
+    fig-height: 5
+    fig-width: 8
+    code-fold: true
 
 editor: visual
 
 execute:
   freeze: auto
+  echo: false
+  warning: false
 
