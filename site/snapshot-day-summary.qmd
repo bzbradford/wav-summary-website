@@ -20,24 +20,6 @@ knitr::opts_chunk$set(dev = "png", dev.args = list(type = "cairo-png"))
 
 load("snapshot-day-summary.RData")
 
-plt_theme <- theme(
-  axis.text.x = element_text(face = "bold", size = 10),
-  panel.background = element_blank(),
-  legend.position = "none"
-)
-
-dt <- function(.data) {
-  datatable(
-    .data,
-    extensions = "Buttons",
-    options = list(
-      lengthMenu = c(5, 10, 25),
-      dom = "Bfrtipl",
-      buttons = c("copy", "csv", "excel")
-    )
-  )
-}
-
 ```
 
 Snapshot Day is a volunteer AIS (Aquatic Invasive Species) monitoring program. Visit [Water Action Volunteers](https://wateractionvolunteers.org/){target="_blank"} for more information.
@@ -116,6 +98,7 @@ leaflet() %>%
   addFullscreenControl(pseudoFullscreen = T)
 ```
 
+
 ## Static map
 
 *Stations monitored for AIS at any time between 2014 and present are shown below.*
@@ -140,6 +123,7 @@ ggplot() +
   labs(fill = "Stations\nin county\n") +
   theme_void()
 ```
+
 
 ### AIS monitoring locations by year
 
@@ -170,6 +154,7 @@ ggplot() +
   )
 ```
 
+
 ## Participation summary
 
 ### Number of volunteers
@@ -190,6 +175,7 @@ ais_groups %>%
   
 ```
 
+
 ### Number of fieldwork events
 
 *Fieldwork events represent a complete data submission to the SWIMS system, identified by a fieldwork sequence number (fsn).*
@@ -207,6 +193,7 @@ fieldwork_events %>%
   plt_theme
   
 ```
+
 
 ### Number of stations monitored
 
@@ -226,6 +213,7 @@ fieldwork_events %>%
   
 ```
 
+
 ### Number of distinct waterbodies monitored
 
 *Waterbodies are differentiated by a unique WBIC.*
@@ -243,6 +231,7 @@ fieldwork_events %>%
   plt_theme
   
 ```
+
 
 ### Number of watersheds monitored
 
@@ -262,6 +251,7 @@ fieldwork_events %>%
   
 ```
 
+
 ### Number of counties monitored
 
 ```{r}
@@ -276,6 +266,7 @@ fieldwork_events %>%
   labs(y = "Counties monitored", x = NULL) +
   plt_theme
 ```
+
 
 ## Fieldwork summary
 
@@ -330,6 +321,7 @@ ais_looked_for %>%
     panel.background = element_blank())
 ```
 
+
 ### Species looked for by year
 
 ```{r fig.height=6}
@@ -373,6 +365,7 @@ ais_looked_for %>%
     panel.background = element_blank())
 ```
 
+
 ### What other write-in species do people look for?
 
 *This question is coded in SWIMS as 91173. Species mentioned only once or fieldwork comments entered in this field are ignored. Volunteers often input species names with different capitalizations or listed several in a sentence, here an automated process was used to try to clean up and tally mentions of different species.*
@@ -411,44 +404,10 @@ ais_looked_for_other %>%
     panel.background = element_blank())
 ```
 
+
 ## How often are AIS found when looked for?
 
-### Frequency of any AIS presence by year
-
 *During a fieldwork data submission in SWIMS, volunteers may indicate that they found one or more invasive species during their survey. In the table below, counts are for counties, watersheds (defined by DNR Watershed Code), waterbodies (defined by WBIC; note that this may be incomplete as some fieldwork does not have a WBIC associated with it), and stations (defined by SWIMS Station ID). Values indicate the number of each category where at least one AIS was found in a fieldwork event out of the total number of fieldwork events.*
-
-```{r}
-sumfn <- function(.data, group, ...) {
-  summarize(
-    .data,
-    counties = n_distinct2(county),
-    watersheds = n_distinct2(dnr_watershed_code),
-    waterbodies = n_distinct2(wbic),
-    stations = n_distinct2(station_id),
-    ...
-  ) %>% mutate(group = group)
-}
-
-totals <- bind_rows(
-  ais_finds %>% sumfn(1),
-  fieldwork_events %>% sumfn(2),
-) %>% mutate(year = "(All)")
-
-annuals <- bind_rows(
-  ais_finds %>% sumfn(1, .by = year),
-  fieldwork_events %>% sumfn(2, .by = year)
-) %>%
-  arrange(group, desc(year)) %>%
-  mutate(year = as.character(year))
-
-bind_rows(totals, annuals) %>%
-  summarize(across(
-    c(counties, watersheds, waterbodies, stations),
-    ~ sprintf("%i / %i (%.0f%%)", .x[1], .x[2], .x[1] / .x[2] * 100)
-  ), .by = year) %>%
-  clean_names(case = "sentence") %>%
-  gt()
-```
 
 ### Number of stations where each AIS was found by year
 
@@ -467,53 +426,16 @@ ais_finds %>%
   data_color(method = "numeric", palette = "viridis")
 ```
 
-### Frequency of any AIS presence by county
 
-#### Quick-reference table
+### Frequency of any AIS presence by year
 
-```{r}
-sumfn <- function(.data, group, ...) {
-  summarize(
-    .data,
-    years = n_distinct2(year),
-    watersheds = n_distinct2(dnr_watershed_code),
-    waterbodies = n_distinct2(wbic),
-    stations = n_distinct2(station_id),
-    ...
-  ) %>% mutate(group = group)
-}
-
-totals <- bind_rows(
-  ais_finds %>% sumfn(1),
-  fieldwork_events %>% sumfn(2),
-) %>% mutate(county = "(All)")
-
-annuals <- bind_rows(
-  ais_finds %>% sumfn(1, .by = county),
-  fieldwork_events %>% sumfn(2, .by = county)
-) %>%
-  complete(
-    county, group,
-    fill = list(years = 0, watersheds = 0, waterbodies = 0, stations = 0)
-  ) %>%
-  arrange(group, desc(stations))
-
-bind_rows(totals, annuals) %>%
-  summarize(across(
-    c(years, watersheds, waterbodies, stations),
-    ~ sprintf("%i / %i (%.0f%%)", .x[1], .x[2], .x[1] / .x[2] * 100)
-  ), .by = county) %>%
-  clean_names(case = "sentence") %>%
-  gt()
-```
-
-#### Detailed table
+*In the tables below, each value is indicated as the number of (e.g.) counties with a positive AIS identification ("found") out of the total number of counties that were monitored in a given year ("looked"), followed by the percentage of that category with a positive ID.*
 
 ```{r}
 sumfn <- function(.data, group, ...) {
   summarize(
     .data,
-    years = n_distinct2(year),
+    counties = n_distinct2(county),
     watersheds = n_distinct2(dnr_watershed_code),
     waterbodies = n_distinct2(wbic),
     stations = n_distinct2(station_id),
@@ -523,29 +445,160 @@ sumfn <- function(.data, group, ...) {
 
 totals <- bind_rows(
   ais_finds %>% sumfn("found"),
-  fieldwork_events %>% sumfn("looked_for"),
-) %>% mutate(county = "(All)")
+  fieldwork_events %>% sumfn("looked"),
+) %>% mutate(year = "(All)")
 
 annuals <- bind_rows(
-  ais_finds %>% sumfn("found", .by = county),
-  fieldwork_events %>% sumfn("looked_for", .by = county)
-)
+  ais_finds %>% sumfn("found", .by = year),
+  fieldwork_events %>% sumfn("looked", .by = year)
+) %>%
+  arrange(group, desc(year)) %>%
+  mutate(year = as.character(year))
 
-bind_rows(totals, annuals) %>%
+df <- bind_rows(totals, annuals)
+```
+
+```{r}
+df %>%
+  arrange(year, group) %>%
+  summarize(
+    across(c(counties, watersheds, waterbodies, stations), ~first(.x) / last(.x)),
+    .by = year
+  ) %>%
+  pivot_longer(c(counties, watersheds, waterbodies, stations)) %>%
+  ggplot(aes(x = year, y = value, fill = value)) +
+  geom_col(color = "black", lwd = .1) +
+  geom_text(aes(label = sprintf("%.0f%%", value*100)), vjust = -.25, size = 3) +
+  scale_fill_viridis_c(labels = scales::label_percent()) +
+  scale_y_continuous(labels = scales::label_percent(), expand = expansion(c(0, .1)), limits = c(0, 1)) +
+  facet_wrap(~str_to_title(name)) +
+  labs(title = "Frequency of AIS presence", x = NULL, y = NULL) +
+  plt_theme +
+  theme(axis.text.x = element_text(angle = 90, vjust = .5), legend.position = "none")
+```
+
+:::{.callout-note collapse="false" title="Frequency of any AIS presence by year"}
+```{r}
+df %>%
+  summarize(across(
+    c(counties, watersheds, waterbodies, stations),
+    ~ sprintf("%i / %i (%.0f%%)", .x[1], .x[2], .x[1] / .x[2] * 100)
+  ), .by = year) %>%
+  to_gt()
+```
+:::
+
+:::{.callout-tip collapse="true" title="Download data"}
+```{r}
+df %>%
+  pivot_longer(c(counties, watersheds, waterbodies, stations)) %>%
+  pivot_wider(names_from = group) %>%
+  mutate(freq = found / looked) %>%
+  pivot_longer(c(found, looked, freq), names_to = "stat") %>%
+  mutate(name = paste(name, stat, sep = "_")) %>%
+  select(-stat) %>%
+  pivot_wider() %>%
+  mutate(across(ends_with("_freq"), ~sprintf("%.0f%%", .x * 100))) %>%
+  arrange(year) %>%
+  to_dt()
+```
+:::
+
+
+### Frequency of AIS presence by county
+
+*In the tables below, each value is indicated as the number of (e.g.) years with a positive AIS identification ("found") out of the total number of years that were monitored in a given county ("looked"), followed by the percentage of that category with a positive ID.*
+
+```{r}
+sumfn <- function(.data, group, ...) {
+  summarize(
+    .data,
+    years = n_distinct2(year),
+    watersheds = n_distinct2(dnr_watershed_code),
+    waterbodies = n_distinct2(wbic),
+    stations = n_distinct2(station_id),
+    ...
+  ) %>% mutate(group = group)
+}
+
+totals <-
+  bind_rows(
+    ais_finds %>% sumfn("found"),
+    fieldwork_events %>% sumfn("looked"),
+  ) %>%
+  mutate(county = "(All)")
+
+annuals <-
+  bind_rows(
+    ais_finds %>% sumfn("found", .by = county),
+    fieldwork_events %>% sumfn("looked", .by = county)
+  ) %>%
+  complete(
+    county, group,
+    fill = list(years = 0, watersheds = 0, waterbodies = 0, stations = 0)
+  ) %>%
+  arrange(group)
+
+df <- bind_rows(totals, annuals)
+```
+
+```{r fig.height=4, fig.width=9.5}
+wi_counties %>%
+  left_join({
+    df %>%
+      arrange(county, group) %>%
+      summarize(
+        across(c(years, watersheds, waterbodies, stations), ~first(.x) / last(.x)),
+        .by = county
+      )
+  }) %>%
+  pivot_longer(c(years, watersheds, waterbodies, stations)) %>%
+  ggplot() +
+  geom_sf(aes(fill = value)) +
+  scale_fill_viridis_c(labels = scales::label_percent()) +
+  facet_wrap(~str_to_title(name), nrow = 1) +
+  labs(title = "Frequency of AIS presence", x = NULL, y = NULL, fill = "Frequency") +
+  theme(
+    plot.title = element_text(margin = margin(t = 10, b = 10)),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    panel.background = element_blank(),
+    legend.position = "bottom"
+  )
+```
+
+:::{.callout-note collapse="false" title="Frequency of AIS presence by county"}
+```{r}
+df %>%
+  summarize(across(
+    c(years, watersheds, waterbodies, stations),
+    ~ sprintf("%i / %i (%.0f%%)", .x[1], .x[2], .x[1] / .x[2] * 100)
+  ), .by = county) %>%
+  arrange(county) %>%
+  to_gt()
+```
+:::
+
+:::{.callout-tip collapse="true" title="Download data"}
+```{r}
+df %>%
   pivot_longer(c(years, watersheds, waterbodies, stations)) %>%
   pivot_wider(names_from = group) %>%
-  mutate(freq = found / looked_for) %>%
-  pivot_longer(c(found, looked_for, freq), names_to = "stat") %>%
+  mutate(freq = found / looked) %>%
+  pivot_longer(c(found, looked, freq), names_to = "stat") %>%
   mutate(name = paste(name, stat, sep = "_")) %>%
   select(-stat) %>%
   pivot_wider() %>%
   mutate(across(ends_with("_freq"), ~sprintf("%.0f%%", .x * 100))) %>%
   arrange(county) %>%
-  clean_names(case = "sentence") %>%
-  dt()
+  to_dt()
 ```
+:::
+
 
 ## New detections of AIS
+
+*For each of the following, AIS identifications have been categorized as either new to the location that year, or a confirmation of a species already found at the site in a prior year.*
 
 ```{r}
 new_ais_plt <- function(df, name) {
@@ -584,6 +637,12 @@ new_ais_plt <- function(df, name) {
 
 *Unique sites are identified by their SWIMS Station ID.*
 
+::: {.callout-tip collapse="true" title="Download data"}
+```{r}
+new_ais_by_site %>% to_dt()
+```
+:::
+
 ```{r}
 new_ais_by_site %>%
   new_ais_plt("sites")
@@ -594,12 +653,17 @@ new_ais_by_site %>%
   filter(year == max(year)) %>%
   new_ais_plt("sites")
 ```
-
 
 
 ### New detections by waterbody
 
-*Unique watersheds are identified by their DNR Watershed Code.*
+*Unique watersheds are identified by their WBIC. Note that some sampling points were missing WBICs; these are enumerated at the end of this report. For the purposes of counting waterbodies, sites missing WBICs have all been assumed to be from different WBICs from any other station in the dataset.*
+
+::: {.callout-tip collapse="true" title="Download data"}
+```{r}
+new_ais_by_waterbody %>% to_dt()
+```
+:::
 
 ```{r}
 new_ais_by_waterbody %>%
@@ -611,11 +675,18 @@ new_ais_by_waterbody %>%
   filter(year == max(year)) %>%
   new_ais_plt("waterbodies")
 ```
+
 
 ### New detections by watershed
 
 *Unique watersheds are identified by their DNR Watershed Code.*
 
+::: {.callout-tip collapse="true" title="Download data"}
+```{r}
+new_ais_by_watershed %>% to_dt()
+```
+:::
+
 ```{r}
 new_ais_by_watershed %>%
   new_ais_plt("watersheds")
@@ -626,9 +697,16 @@ new_ais_by_watershed %>%
   filter(year == max(year)) %>%
   new_ais_plt("watersheds")
 ```
+
 
 ### New detections by county
 
+::: {.callout-tip collapse="true" title="Download data"}
+```{r}
+new_ais_by_county %>% to_dt()
+```
+:::
+
 ```{r}
 new_ais_by_county %>%
   new_ais_plt("counties")
@@ -640,10 +718,11 @@ new_ais_by_county %>%
   new_ais_plt("counties")
 ```
 
+
 ## Which AIS are commonly found?
 
+:::{.callout-note collapse="false"}
 ### AIS finds by county
-
 ```{r}
 ais_finds %>%
   summarize(
@@ -652,12 +731,12 @@ ais_finds %>%
     .by = county
   ) %>%
   arrange(desc(species)) %>%
-  clean_names(case = "title") %>%
-  dt()
+  to_dt()
 ```
+:::
 
+:::{.callout-note collapse="false"}
 ### AIS finds by watershed
-
 ```{r}
 ais_finds %>%
   summarize(
@@ -666,12 +745,12 @@ ais_finds %>%
     .by = c(dnr_watershed_name, county)
   ) %>%
   arrange(desc(species)) %>%
-  clean_names(case = "title") %>%
-  dt()
+  to_dt()
 ```
+:::
 
+:::{.callout-note collapse="false"}
 ### AIS finds by waterbody
-
 ```{r}
 ais_finds %>%
   drop_na(wbic) %>%
@@ -682,11 +761,12 @@ ais_finds %>%
   ) %>%
   arrange(desc(species)) %>%
   clean_names(case = "title") %>%
-  dt()
+  to_dt()
 ```
+:::
 
+:::{.callout-note collapse="false"}
 ### AIS finds by site
-
 ```{r}
 ais_finds %>%
   summarize(
@@ -695,19 +775,33 @@ ais_finds %>%
     .by = c(station_id, station_name, county)
   ) %>%
   arrange(desc(species)) %>%
-  clean_names(case = "title") %>%
-  dt()
+  to_dt()
 ```
+:::
 
-## SWIMS parameters associated with AIS fieldwork
+
+## Miscellaneous information
+
+### Stations that are missing WBICs
+
+:::{.callout-note collapse="true" title="Show/hide table"}
+```{r}
+stns_without_wbic %>% to_dt()
+```
+:::
+
+
+### SWIMS parameters associated with AIS fieldwork
 
 *When volunteers submit data to SWIMS each field has an internal parameter code as well as a description (which is shown to the submitter). In the table below, the frequency indicates how many times the parameter was included in the AIS dataset.*
 
+:::{.callout-note collapse="true" title="Show/hide table"}
 ```{r}
 dnr_parameters %>%
   set_names(c("Code", "Description", "Frequency")) %>%
-  gt()
+  to_gt()
 ```
+:::
 
 ::: {style="margin-top: 4em; border-top: 1px solid grey; color: grey; font-size: small"}
 *AIS Snapshot Day summary developed by Ben Bradford (UW-Madison Entomology) and Emily Heald (Rivers Educator, UW-Extension NRI). Data courtesy Wisconsin DNR.*

@@ -43,6 +43,33 @@ n_distinct2 <- function(...) {
   n_distinct(..., na.rm = TRUE)
 }
 
+plt_theme <- theme(
+  axis.text.x = element_text(face = "bold", size = 10),
+  panel.background = element_blank(),
+  legend.position = "none"
+)
+
+to_dt <- function(.data) {
+  .data %>%
+    clean_names(case = "title") %>%
+    datatable(
+      .data,
+      extensions = "Buttons",
+      options = list(
+        lengthMenu = c(5, 10, 25),
+        dom = "Bfrtipl",
+        buttons = c("copy", "csv", "excel")
+      )
+    )
+}
+
+to_gt <- function(.data) {
+  .data %>%
+    clean_names(case = "title") %>%
+    gt() %>%
+    tab_options(table.width = "100%")
+}
+
 
 # Load shapefiles ----
 
@@ -95,7 +122,7 @@ wbic_ais_county <- wbic_ais %>%
 # Load data ----
 
 snapshot_years <- 2014:2024
-ais_results <-
+ais_results_in <-
   paste0("data-ais-snapshot-day/SSD_", snapshot_years, ".xlsx") %>%
   lapply(read_excel, na = c("", "NA"), guess_max = 1e6) %>%
   bind_rows() %>%
@@ -129,6 +156,23 @@ ais_results <-
   st_join(select(watersheds, dnr_watershed_code, dnr_watershed_name)) %>%
   st_drop_geometry()
 
+# # sites missing WBICs
+stns_without_wbic <- ais_results_in %>%
+  filter(is.na(wbic)) %>%
+  summarize(
+    fieldwork_count = n_distinct2(fsn),
+    years_monitored = to_summary_list(year),
+    .by = c(station_id, station_name, station_type, latitude, longitude, county, wbic, waterbody_name)
+  ) %>%
+  arrange(latitude, longitude)
+
+# use station_id when missing WBIC
+ais_results <- ais_results_in %>%
+  mutate(
+    wbic = coalesce(wbic, station_id),
+    waterbody_name = coalesce(waterbody_name, station_name)
+  )
+
 # only species IDs
 ais_finds <- ais_results %>%
   filter(parameter_code == 20043) %>%
@@ -158,6 +202,17 @@ ais_groups <- ais_results %>%
 
 ## Make points ----
 
+# all sampled locations
+all_pts <- ais_results %>%
+  distinct(
+    station_id, station_name, station_type,
+    latitude, longitude,
+    wbic, waterbody_name
+  ) %>%
+  arrange(latitude, longitude) %>%
+  to_sf()
+
+# basically fieldwork pts, including when no ais was found
 ais_pts <- ais_finds %>%
   summarize(
     n_species = n_distinct(result),
