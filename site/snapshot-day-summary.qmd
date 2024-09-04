@@ -210,11 +210,10 @@ fieldwork_events %>%
   scale_fill_viridis_c() +
   labs(x = NULL, y = "Number of stations") +
   plt_theme
-  
 ```
 
 
-### Number of distinct waterbodies monitored
+### Number of waterbodies monitored
 
 *Waterbodies are differentiated by a unique WBIC.*
 
@@ -229,9 +228,40 @@ fieldwork_events %>%
   scale_fill_viridis_c() +
   labs(x = NULL, y = "Number of waterbodies") +
   plt_theme
-  
 ```
 
+### Types of waterbodies monitored
+
+*Waterbodies are differentiated by a unique WBIC. Waterbody type is derived from the Station Type associated with the station where fieldwork was performed. May not be totally accurate.*
+
+:::{.callout-tip collapse="true" title="Download data"}
+```{r}
+fieldwork_events %>%
+  summarize(
+    n_fieldwork = n_distinct2(fsn),
+    stations = to_summary_list(station_id),
+    station_types = to_summary_list(station_type),
+    .by = c(year, wbic, waterbody_name, waterbody_type)
+  ) %>%
+  replace_na(list(waterbody_type = "unknown")) %>%
+  to_dt()
+```
+:::
+
+```{r}
+fieldwork_events %>%
+  mutate(year = as.character(year)) %>%
+  filter(waterbody_type %in% c("lake", "river/stream", "wetland")) %>%
+  summarize(n = n_distinct2(wbic), .by = c(year, waterbody_type)) %>%
+  ggplot(aes(x = year, y = n, fill = n, label = n)) +
+  geom_col(color = "black") +
+  geom_text(vjust = -.25) +
+  facet_wrap(~str_to_title(waterbody_type), ncol = 1, scales = "free_y") +
+  scale_y_continuous(expand = expansion(c(.01, .2))) +
+  scale_fill_viridis_c() +
+  labs(x = NULL, y = "Number of waterbodies") +
+  plt_theme
+```
 
 ### Number of watersheds monitored
 
@@ -248,7 +278,6 @@ fieldwork_events %>%
   scale_fill_viridis_c() +
   labs(x = NULL, y = "Number of watersheds") +
   plt_theme
-  
 ```
 
 
@@ -269,6 +298,17 @@ fieldwork_events %>%
 
 
 ## Fieldwork summary
+
+### List of fieldwork events
+
+:::{.callout-note collapse="false" title="List of fieldwork events"}
+```{r}
+fieldwork_events %>%
+  arrange(desc(date)) %>%
+  to_dt()
+```
+:::
+
 
 ### What species are commonly looked for or not looked for?
 
@@ -598,7 +638,7 @@ df %>%
 
 ## New detections of AIS
 
-*For each of the following, AIS identifications have been categorized as either new to the location that year, or a confirmation of a species already found at the site in a prior year.*
+*For each of the following, AIS identifications have been categorized as either new to the location that year, or a confirmation of a species already found at the site in a prior year. Generally these comparisons use the Snapshot Day dataset covering `{r} min(ais_results$year)` - `{r} max(ais_results$year)`, except for finds by waterbody for the most recent year, which uses the DNR's authoritative list of waters with AIS.*
 
 ```{r}
 new_ais_plt <- function(df, name) {
@@ -655,9 +695,9 @@ new_ais_by_site %>%
 ```
 
 
-### New detections by waterbody
+### New detections by waterbody, using Snapshot Day dataset
 
-*Unique watersheds are identified by their WBIC. Note that some sampling points were missing WBICs; these are enumerated at the end of this report. For the purposes of counting waterbodies, sites missing WBICs have all been assumed to be from different WBICs from any other station in the dataset.*
+*Unique waterbodies are identified by their WBIC. Note that some sampling points were missing WBICs; these are enumerated at the end of this report. For the purposes of counting waterbodies, sites missing WBICs have all been assumed to be from different WBICs from any other station in the dataset.*
 
 ::: {.callout-tip collapse="true" title="Download data"}
 ```{r}
@@ -670,9 +710,19 @@ new_ais_by_waterbody %>%
   new_ais_plt("waterbodies")
 ```
 
+
+### New detections by waterbody, using DNR's Waters with AIS list
+
+*Unique waterbodies are identified by their WBIC. Note that some sampling points were missing WBICs; these are enumerated at the end of this report. For the purposes of counting waterbodies, sites missing WBICs have all been assumed to be from different WBICs from any other station in the dataset.*
+
+::: {.callout-tip collapse="true" title="Download data"}
 ```{r}
-new_ais_by_waterbody %>%
-  filter(year == max(year)) %>%
+new_ais_by_waterbody_dnr %>% to_dt()
+```
+:::
+
+```{r}
+new_ais_by_waterbody_dnr %>%
   new_ais_plt("waterbodies")
 ```
 
@@ -721,7 +771,7 @@ new_ais_by_county %>%
 
 ## Which AIS are commonly found?
 
-:::{.callout-note collapse="false"}
+:::{.callout-note collapse="true"}
 ### AIS finds by county
 ```{r}
 ais_finds %>%
@@ -735,7 +785,7 @@ ais_finds %>%
 ```
 :::
 
-:::{.callout-note collapse="false"}
+:::{.callout-note collapse="true"}
 ### AIS finds by watershed
 ```{r}
 ais_finds %>%
@@ -749,23 +799,31 @@ ais_finds %>%
 ```
 :::
 
-:::{.callout-note collapse="false"}
+:::{.callout-note collapse="true"}
 ### AIS finds by waterbody
+*This combines the DNR's AIS by Waterbody dataset with Snapshot Day data.*
 ```{r}
-ais_finds %>%
-  drop_na(wbic) %>%
+from_dnr <- wbic_ais %>%
+  reframe(
+    result = str_split(invasive_species, ", ") %>% unlist(),
+    .by = c(wbic, waterbody_name)
+  )
+
+from_snapshot <- ais_finds %>%
+  distinct(wbic, waterbody_name, result)
+
+bind_rows(from_dnr, from_snapshot) %>%
   summarize(
     species = n_distinct(result),
     species_names = to_summary_list(result),
-    .by = c(wbic, waterbody_name, county)
+    .by = c(wbic, waterbody_name)
   ) %>%
   arrange(desc(species)) %>%
-  clean_names(case = "title") %>%
   to_dt()
 ```
 :::
 
-:::{.callout-note collapse="false"}
+:::{.callout-note collapse="true"}
 ### AIS finds by site
 ```{r}
 ais_finds %>%

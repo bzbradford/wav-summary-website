@@ -88,7 +88,7 @@ watersheds <- read_rds("shp/dnr_watersheds.rds") %>%
 
 # WBIC sheet ----
 
-wbic_ais <-
+wbic_county_ais <-
   read_excel("data-ais-snapshot-day/WatersWithAIS.xlsx") %>%
   clean_names() %>%
   select(
@@ -107,17 +107,28 @@ wbic_ais <-
   fill(county) %>%
   drop_na(wbic)
 
+wbic_ais <- wbic_county_ais %>%
+  summarize(
+    invasive_species = paste(invasive_species, collapse = ", ") %>%
+      str_split(", ") %>% unlist() %>% to_summary_list(),
+    .by = c(wbic, waterbody_name)
+  ) %>%
+  arrange(wbic)
+
 wbic_names <- wbic_ais %>% distinct(wbic, waterbody_name)
 
-wbic_ais_county <- wbic_ais %>%
-  reframe(
-    invasive_species = paste(invasive_species, collapse = ", ") %>%
-      str_split(", ") %>%
-      unlist() %>%
-      sort(),
-    .by = c(county, wbic, waterbody_name)
-  )
+# wbic_ais_county <- wbic_county_ais %>%
+#   reframe(
+#     invasive_species = paste(invasive_species, collapse = ", ") %>%
+#       str_split(", ") %>%
+#       unlist() %>%
+#       sort(),
+#     .by = c(county, wbic, waterbody_name)
+#   )
 
+# Waterbody types
+
+waterbody_types <- read_csv("data-ais-snapshot-day/station_types.csv")
 
 # Load data ----
 
@@ -145,6 +156,7 @@ ais_results_in <-
     fieldwork_comment
   ) %>%
   mutate(date = as_date(datetime), year = year(date), .after = datetime) %>%
+  select(-datetime) %>%
   filter(year %in% snapshot_years) %>%
   drop_na(latitude, longitude, parameter_code, parameter_name) %>%
   mutate(across(c(fsn, parameter_code, station_id, wbic, latitude, longitude), as.numeric)) %>%
@@ -156,7 +168,12 @@ ais_results_in <-
   st_join(select(watersheds, dnr_watershed_code, dnr_watershed_name)) %>%
   st_drop_geometry()
 
-# # sites missing WBICs
+# ais_results_in %>%
+#   distinct(station_type) %>%
+#   arrange(station_type) %>%
+#   write_csv("station_types.csv")
+
+# sites missing WBICs
 stns_without_wbic <- ais_results_in %>%
   filter(is.na(wbic)) %>%
   summarize(
@@ -165,25 +182,75 @@ stns_without_wbic <- ais_results_in %>%
     .by = c(station_id, station_name, station_type, latitude, longitude, county, wbic, waterbody_name)
   ) %>%
   arrange(latitude, longitude)
+#
+# # use station_id when missing WBIC
+# ais_results <- ais_results_in %>%
+# mutate(
+#   wbic = coalesce(wbic, station_id),
+#   waterbody_name = coalesce(waterbody_name, station_name)
+# )
 
-# use station_id when missing WBIC
-ais_results <- ais_results_in %>%
+# fill in missing WBICs per Emily's list
+missing_wbic <- read_csv("data-ais-snapshot-day/snapshot-day-missing-wbics.csv")
+
+ais_results <- bind_rows(
+  ais_results_in %>% filter(!is.na(wbic)),
+  ais_results_in %>%
+    filter(is.na(wbic)) %>%
+    select(-c(wbic, waterbody_name)) %>%
+    left_join(missing_wbic)
+) %>%
   mutate(
     wbic = coalesce(wbic, station_id),
     waterbody_name = coalesce(waterbody_name, station_name)
-  )
+  ) %>%
+  left_join(waterbody_types) %>%
+  relocate(waterbody_type, .after = waterbody_name)
 
 # only species IDs
 ais_finds <- ais_results %>%
   filter(parameter_code == 20043) %>%
   drop_na(result)
 
+finds_by_fsn <- ais_finds %>%
+  summarize(
+    n_species = n_distinct2(result),
+    species_found = to_summary_list(result),
+    .by = fsn
+  )
+
+# finds_by_station <- ais_finds %>%
+#   summarize(
+#     n_fieldwork = n_distinct2(fsn),
+#     n_species = n_distinct2(result),
+#     species_found = to_summary_list(result),
+#     .by = c(station_id, station_name, station_type)
+#   )
+#
+# finds_by_wbic <- ais_finds %>%
+#   summarize(
+#     n_fieldwork = n_distinct2(fsn),
+#     n_species = n_distinct2(result),
+#     species_found = to_summary_list(result),
+#     .by = c(wbic, waterbody_name)
+#   )
+#
+# finds_by_watershed <- ais_finds %>%
+#   summarize(
+#     n_fieldwork = n_distinct2(fsn),
+#     n_species = n_distinct2(result),
+#     species_found = to_summary_list(result),
+#     .by = c(dnr_watershed_code, dnr_watershed_name)
+#   )
+
 
 ## Fieldwork ----
 
 fieldwork_events <- ais_results %>%
   select(-c("parameter_name", "parameter_code", "result")) %>%
-  distinct()
+  distinct() %>%
+  left_join(finds_by_fsn)
+
 
 
 ## Volunteers ----
@@ -207,7 +274,7 @@ all_pts <- ais_results %>%
   distinct(
     station_id, station_name, station_type,
     latitude, longitude,
-    wbic, waterbody_name
+    wbic, waterbody_name, waterbody_type
   ) %>%
   arrange(latitude, longitude) %>%
   to_sf()
@@ -302,7 +369,7 @@ new_ais_by_site <- ais_finds %>%
 
 new_ais_by_waterbody <- ais_finds %>%
   drop_na(wbic) %>%
-  distinct(wbic, waterbody_name, station_id, year, result) %>%
+  distinct(wbic, waterbody_name, waterbody_type, station_id, year, result) %>%
   mutate(first_report = min(year), .by = c(wbic, result)) %>%
   mutate(id_type = if_else(year == first_report, "new", "existing")) %>%
   summarize(
@@ -311,6 +378,30 @@ new_ais_by_waterbody <- ais_finds %>%
     waterbody_names = to_summary_list(waterbody_name),
     .by = c(result, year, id_type)) %>%
   mutate(total_annual_waterbodies = sum(waterbodies), .by = c(result, year))
+
+new_ais_by_waterbody_dnr_long <- ais_finds %>%
+  filter(year == max(year)) %>%
+  drop_na(wbic) %>%
+  distinct(wbic, waterbody_name, waterbody_type, year, result) %>%
+  left_join(wbic_ais) %>%
+  rename(known_species = invasive_species) %>%
+  rowwise() %>%
+  mutate(
+    id_type = if_else(grepl(result, known_species, fixed = T), "existing", "new"),
+    .after = result
+  ) %>%
+  ungroup()
+
+# new_ais_by_waterbody_dnr_long %>% write_csv("New AIS by waterbody.csv")
+
+new_ais_by_waterbody_dnr <- new_ais_by_waterbody_dnr_long %>%
+  summarize(
+    waterbodies = n_distinct(wbic),
+    waterbody_codes = to_summary_list(wbic),
+    waterbody_names = to_summary_list(waterbody_name),
+    .by = c(result, year, id_type)) %>%
+  mutate(total_annual_waterbodies = sum(waterbodies), .by = c(result, year))
+
 
 new_ais_by_watershed <- ais_finds %>%
   distinct(dnr_watershed_code, dnr_watershed_name, year, result) %>%
