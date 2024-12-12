@@ -13,8 +13,8 @@ rm(list = ls())
 
 ais_results <-
   list(
-    "data-ais-project-red/WAV Project RED 2008-2023.xlsx",
-    "data-ais-project-red/WAV Project RED 2024.xlsx"
+    "data-ais-project-red/WAV Project RED 2008-2014.xlsx",
+    "data-ais-project-red/WAV Project RED 2015-2024.xlsx"
   ) %>%
   lapply(readxl::read_excel, na = c("", "NA")) %>%
   bind_rows() %>%
@@ -69,7 +69,7 @@ results_wide <- ais_results %>%
   pivot_wider(names_from = parameter_name, values_from = result, values_fn = ~ paste(.x, collapse = ", "))
 
 ais_groups <-
-  readxl::read_excel("data-ais-project-red/WAV Project RED IP 2008-2024.xlsx") %>%
+  readxl::read_excel("data-ais-project-red/WAV Project RED IP.xlsx") %>%
   clean_names() %>%
   select(-sample_comment) %>%
   mutate(full_name = case_when(

@@ -37,6 +37,10 @@ plt_theme <- theme(
 
 Project RED (Riverine Early Detectors) is a volunteer AIS (Aquatic Invasive Species) monitoring program. Visit [Water Action Volunteers](https://wateractionvolunteers.org/){target="_blank"} for more information.
 
+::: callout-note
+The Project RED AIS monitoring data includes `r n_distinct(ais_results$fsn)` fieldwork events at `r n_distinct(ais_results$station_id)` stations from `r min(ais_results$date)` to `r max(ais_results$date)`.
+:::
+
 ## Interactive map
 
 *This map shows all point stations and river segments that were monitored at least once for AIS between 2008 and present. River segments are shown as red lines and point stations are shown as orange circles. Individual fieldwork events are shown as blue pins or numbered groups when zoomed out. Click on a blue pin to get more information about an AIS fieldwork event.*
@@ -118,7 +122,9 @@ ggplot() +
   )
 ```
 
-### AIS monitoring locations by year
+### AIS monitoring locations by year (point stations)
+
+*Non-point monitoring where the area monitored is represented by a shapefile in SWIMS and not by a single Lat/Lng coordinate, do not show up in the map below, but do appear in the interactive map above (when the shapefiles have been updated).*
 
 ```{r fig.height=7}
 county_counts <- wi_counties %>%

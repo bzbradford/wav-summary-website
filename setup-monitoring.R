@@ -14,7 +14,7 @@ cur_year <- 2024
 # Load data ----
 
 ## Stations and monitoring data ----
-
+# Update these from the WAV Dashboard data prep project
 stns <- readRDS("data-monitoring/station-list.rds")
 baseline <- readRDS("data-monitoring/baseline-data.rds")
 nutrient <- readRDS("data-monitoring/tp-data.rds")
