@@ -1,8 +1,8 @@
 ---
-title: "2024 Monitoring Summary"
+title: "Annual Monitoring Summary"
 format:
   html:
-    pagetitle: "2024 Monitoring Summary - Water Action Volunteers"
+    pagetitle: "Annual Monitoring Summary"
     toc: true
     echo: true
     code-fold: true
@@ -332,10 +332,11 @@ therm %>%
 ## Deployment time periods
 
 ```{r}
+anchor_date <- make_date(cur_year - 1, 12, 31)
 therm %>%
   summarize(
-    min_day = as.Date("2022-12-31") + min(yday),
-    max_day = as.Date("2022-12-31") + max(yday),
+    min_day = anchor_date + min(yday),
+    max_day = anchor_date + max(yday),
     n_days = max_day - min_day + 1,
     .by = c(year, station_id)
   ) %>%
@@ -344,7 +345,7 @@ therm %>%
   geom_segment(
     aes(x = min_day, xend = max_day, y = year, yend = year),
     color = "steelblue",
-    linewidth = 15,
+    linewidth = 10,
     alpha = .05) +
   scale_x_date(date_labels = "%b") +
   labs(

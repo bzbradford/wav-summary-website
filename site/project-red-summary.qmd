@@ -109,8 +109,9 @@ county_counts <- all_pts %>%
 
 ggplot() +
   geom_sf(data = wi_counties) +
-  geom_sf(data = wi_counties %>%
-      left_join(county_counts), aes(fill = n), alpha = .5) +
+  geom_sf(
+    data = wi_counties %>% left_join(county_counts),
+    aes(fill = n), alpha = .5) +
   geom_sf(data = wi, fill = NA, lwd = .75) +
   geom_sf_text(data = wi_counties, aes(label = county_name), angle = 15, size = 2, alpha = .5) +
   geom_sf(data = all_pts, shape = 24, fill = "orange", size = 3) +
@@ -122,9 +123,7 @@ ggplot() +
   )
 ```
 
-### AIS monitoring locations by year (point stations)
-
-*Non-point monitoring where the area monitored is represented by a shapefile in SWIMS and not by a single Lat/Lng coordinate, do not show up in the map below, but do appear in the interactive map above (when the shapefiles have been updated).*
+### AIS monitoring locations by year
 
 ```{r fig.height=7}
 county_counts <- wi_counties %>%

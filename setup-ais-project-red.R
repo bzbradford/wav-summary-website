@@ -132,11 +132,14 @@ stn_lines <- lapply(RED, st_as_sf) %>%
   ) %>%
   filter(station_id %in% ais_results$station_id)
 
-stn_pts_annual <- stn_pts %>%
+stn_lines_annual <- stn_lines %>%
   left_join(annual_counts) %>%
   left_join(year_labels)
 
-stn_lines_annual <- stn_lines %>%
+stn_pts_annual <- stn_lines %>%
+  st_centroid() %>%
+  st_join(select(wi_counties, county_name)) %>%
+  bind_rows(stn_pts) %>%
   left_join(annual_counts) %>%
   left_join(year_labels)
 

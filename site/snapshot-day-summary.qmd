@@ -2,7 +2,7 @@
 title: "Snapshot Day AIS Monitoring Summary"
 format:
   html:
-    pagetitle: "Snapshot Day AIS Monitoring Summary - Water Action Volunteers"
+    pagetitle: "Snapshot Day AIS Monitoring Summary"
 ---
 
 ```{r setup}
@@ -844,7 +844,7 @@ ais_finds %>%
 
 :::{.callout-note collapse="true" title="Show/hide table"}
 ```{r}
-stns_without_wbic %>% to_dt()
+missing_wbic %>% to_dt()
 ```
 :::
 

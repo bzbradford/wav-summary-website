@@ -8,9 +8,6 @@ library(leaflet)
 rm(list = ls())
 
 
-cur_year <- 2024
-
-
 # Load data ----
 
 ## Stations and monitoring data ----
@@ -21,6 +18,7 @@ nutrient <- readRDS("data-monitoring/tp-data.rds")
 therm <- readRDS("data-monitoring/therm-data.rds")
 therm_info <- readRDS("data-monitoring/therm-inventory.rds")
 
+cur_year <- max(baseline$year)
 
 ## Shapefiles ----
 
@@ -183,7 +181,7 @@ baseline_vols <- baseline %>%
 
 nutrient_vols <- nutrient %>%
   group_by(year) %>%
-  summarize(names = list(getUniqueNames(volunteer_name)), .groups = "drop") %>%
+  summarize(names = list(getUniqueNames(collector_name)), .groups = "drop") %>%
   mutate(n = sapply(names, length))
 
 therm_vols <- therm_info %>%
@@ -194,7 +192,7 @@ therm_vols <- therm_info %>%
 all_vols <-
   bind_rows(
     select(baseline, year, name = group_desc),
-    select(nutrient, year, name = volunteer_name),
+    select(nutrient, year, name = collector_name),
     select(therm_info, year, name = contact_name)
   ) %>%
   group_by(year) %>%
@@ -284,3 +282,4 @@ addPtsInOut <- function(pts_in, pts_out, pt_color, title, yr = cur_year) {
 # Save data image ----
 
 save.image("site/annual-monitoring-summary.RData")
+

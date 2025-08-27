@@ -10,6 +10,8 @@ library(DT)
 
 rm(list = ls())
 
+DATA_DIR <- "data-ais-snapshot-day/"
+
 create_popups <- function(df) {
   df <- df %>% st_set_geometry(NULL)
   cols <- names(df)
@@ -89,7 +91,7 @@ watersheds <- read_rds("shp/dnr_watersheds.rds") %>%
 # WBIC sheet ----
 
 wbic_county_ais <-
-  read_excel("data-ais-snapshot-day/WatersWithAIS.xlsx") %>%
+  read_excel(paste0(DATA_DIR, "WatersWithAIS-2025.xlsx")) %>%
   clean_names() %>%
   select(
     wbic = waterbody_id_code_wbic,
@@ -128,13 +130,13 @@ wbic_names <- wbic_ais %>% distinct(wbic, waterbody_name)
 
 # Waterbody types
 
-waterbody_types <- read_csv("data-ais-snapshot-day/station_types.csv")
+waterbody_types <- read_csv(paste0(DATA_DIR, "station_types.csv"))
 
 # Load data ----
 
-snapshot_years <- 2014:2024
+snapshot_years <- 2014:2025
 ais_results_in <-
-  paste0("data-ais-snapshot-day/SSD_", snapshot_years, ".xlsx") %>%
+  paste0(DATA_DIR, "SSD_", snapshot_years, ".xlsx") %>%
   lapply(read_excel, na = c("", "NA"), guess_max = 1e6) %>%
   bind_rows() %>%
   clean_names() %>%
@@ -158,40 +160,93 @@ ais_results_in <-
   mutate(date = as_date(datetime), year = year(date), .after = datetime) %>%
   select(-datetime) %>%
   filter(year %in% snapshot_years) %>%
-  drop_na(latitude, longitude, parameter_code, parameter_name) %>%
+  drop_na(parameter_code, parameter_name) %>%
   mutate(across(c(fsn, parameter_code, station_id, wbic, latitude, longitude), as.numeric)) %>%
   left_join(wbic_names) %>%
   relocate(waterbody_name, .after = wbic) %>%
-  arrange(fsn, parameter_code) %>%
-  to_sf() %>%
-  st_join(wi_counties, join = st_nearest_feature) %>%
-  st_join(select(watersheds, dnr_watershed_code, dnr_watershed_name)) %>%
-  st_drop_geometry()
+  arrange(fsn, parameter_code)
 
 # ais_results_in %>%
 #   distinct(station_type) %>%
 #   arrange(station_type) %>%
 #   write_csv("station_types.csv")
 
-# sites missing WBICs
+
+## Check missing/invalid lat lng ----
+
+find_invalid_ll <- function(.data) {
+  .data %>% filter(is.na(latitude) | is.na(longitude) | latitude == 0 | longitude == 0)
+}
+
+# merges corrections into main dataset
+join_and_update <- function(.x, .y, join_col) {
+  update_cols <- setdiff(names(.y), join_col)
+  left_join(.x, .y, join_by(!!join_col), suffix = c("", "_new")) %>%
+    mutate(across(all_of(update_cols), ~ coalesce(get(paste0(cur_column(), "_new")), .))) %>%
+    select(-ends_with("_new"))
+}
+
+stns_invalid_ll <- ais_results_in %>%
+  find_invalid_ll() %>%
+  summarize(
+    fieldwork_count = n_distinct2(fsn),
+    years_monitored = to_summary_list(year),
+    .by = c(station_id, station_name, station_type, latitude, longitude, wbic, waterbody_name)
+  )
+
+stns_invalid_ll %>% write_csv(paste0(DATA_DIR, "stns-invalid-ll.csv"))
+
+stns_corrected_ll <- read_csv(paste0(DATA_DIR, "stns-corrected-ll.csv")) %>%
+  select(-c(fieldwork_count, years_monitored))
+
+ais_results_in <- join_and_update(ais_results_in, stns_corrected_ll, "station_id")
+
+local({
+  df <- find_invalid_ll(ais_results_in)
+  if (nrow(df) > 0) {
+    warning(nrow(df), " stations with invalid latitude/longitude!")
+    print(stns_invalid_ll)
+  }
+})
+
+
+## Fill missing WBICs ----
+
+# sites with valid latitude/longitude but missing WBICs
 stns_without_wbic <- ais_results_in %>%
   filter(is.na(wbic)) %>%
   summarize(
     fieldwork_count = n_distinct2(fsn),
     years_monitored = to_summary_list(year),
-    .by = c(station_id, station_name, station_type, latitude, longitude, county, wbic, waterbody_name)
+    .by = c(station_id, station_name, station_type, latitude, longitude, wbic, waterbody_name)
   ) %>%
   arrange(latitude, longitude)
-#
-# # use station_id when missing WBIC
-# ais_results <- ais_results_in %>%
-# mutate(
-#   wbic = coalesce(wbic, station_id),
-#   waterbody_name = coalesce(waterbody_name, station_name)
-# )
 
 # fill in missing WBICs per Emily's list
-missing_wbic <- read_csv("data-ais-snapshot-day/snapshot-day-missing-wbics.csv")
+corrected_wbic <- bind_rows(
+  read_csv("data-ais-snapshot-day/stns-corrected-wbics-2024.csv"),
+  read_csv("data-ais-snapshot-day/stns-corrected-wbics-2025.csv")
+) %>%
+  arrange(wbic) %>%
+  distinct(station_id, .keep_all = T)
+
+# still missing?
+missing_wbic <- corrected_wbic %>%
+  bind_rows(stns_without_wbic) %>%
+  arrange(wbic) %>%
+  distinct(station_id, .keep_all = TRUE) %>%
+  filter(is.na(wbic))
+
+if (nrow(missing_wbic) > 0) {
+  warning(nrow(missing_wbic), " stations missing WBIC!")
+  print(missing_wbic)
+  missing_wbic %>% write_csv("data-ais-snapshot-day/stns-missing-wbic.csv")
+}
+
+ais_results_in <- join_and_update(ais_results_in, corrected_wbic, "station_id")
+
+
+## Fix and clean AIS results ----
 
 ais_results <- bind_rows(
   ais_results_in %>% filter(!is.na(wbic)),
@@ -205,7 +260,12 @@ ais_results <- bind_rows(
     waterbody_name = coalesce(waterbody_name, station_name)
   ) %>%
   left_join(waterbody_types) %>%
-  relocate(waterbody_type, .after = waterbody_name)
+  relocate(waterbody_type, .after = waterbody_name) %>%
+  drop_na(latitude, longitude) %>%
+  to_sf() %>%
+  st_join(wi_counties, join = st_nearest_feature) %>%
+  st_join(select(watersheds, dnr_watershed_code, dnr_watershed_name)) %>%
+  st_drop_geometry()
 
 # only species IDs
 ais_finds <- ais_results %>%
@@ -443,11 +503,11 @@ dnr_parameters <- ais_results %>%
 ## Export data ----
 
 ais_results %>%
-  write_csv(str_glue("exports/Snapshot day - all results {Sys.Date()}.csv"))
+  write_csv(str_glue("exports/Snapshot day - All results {Sys.Date()}.csv"))
 ais_finds %>%
-  write_csv(str_glue("exports/Snapshot day - positive finds {Sys.Date()}.csv"))
+  write_csv(str_glue("exports/Snapshot day - Positive finds {Sys.Date()}.csv"))
 ais_groups %>%
-  write_csv(str_glue("exports/Snapshot day - volunteer names {Sys.Date()}.csv"))
+  write_csv(str_glue("exports/Snapshot day - Volunteer names {Sys.Date()}.csv"))
 
 
 ## Save image ----
