@@ -190,11 +190,12 @@ report_baseline_cols <- c(
   `Air temp` = "air_temp",
   `Water temp` = "water_temp",
   `D.O. (mg/L)` = "d_o",
-  `D.O. (% sat.)` = "d_o_percent_saturation",
+  `D.O. (% sat.)` = "d_o_saturation",
   `Transparency` = "transparency",
   `Streamflow` = "streamflow",
   `pH` = "ph",
-  `Specific conductivity` = "specific_cond"
+  `Specific conductance` = "specific_cond",
+  `Biotic Index` = "biotic_index_score"
 )
 
 baseline %>%

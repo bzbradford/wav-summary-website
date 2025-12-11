@@ -12,11 +12,11 @@ rm(list = ls())
 
 ## Stations and monitoring data ----
 # Update these from the WAV Dashboard data prep project
-stns <- readRDS("data-monitoring/station-list.rds")
-baseline <- readRDS("data-monitoring/baseline-data.rds")
-nutrient <- readRDS("data-monitoring/tp-data.rds")
-therm <- readRDS("data-monitoring/therm-data.rds")
-therm_info <- readRDS("data-monitoring/therm-inventory.rds")
+stns <- read_csv("data-monitoring/stn_list.csv")
+baseline <- read_csv("data-monitoring/baseline_data.csv")
+nutrient <- read_csv("data-monitoring/tp_data.csv")
+therm <- read_csv("data-monitoring/therm_data.csv.gz")
+therm_info <- read_csv("data-monitoring/therm_inventory.csv")
 
 cur_year <- max(baseline$year)
 
