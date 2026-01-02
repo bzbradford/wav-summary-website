@@ -10,7 +10,7 @@ library(DT)
 
 rm(list = ls())
 
-DATA_DIR <- "data-ais-snapshot-day/"
+data_dir <- function(f) file.path("data_snapshot_day", f)
 
 create_popups <- function(df) {
   df <- df %>% st_set_geometry(NULL)
@@ -44,12 +44,6 @@ to_summary_list <- function(x, count = FALSE) {
 n_distinct2 <- function(...) {
   n_distinct(..., na.rm = TRUE)
 }
-
-plt_theme <- theme(
-  axis.text.x = element_text(face = "bold", size = 10),
-  panel.background = element_blank(),
-  legend.position = "none"
-)
 
 to_dt <- function(.data) {
   .data %>%
@@ -91,7 +85,7 @@ watersheds <- read_rds("shp/dnr_watersheds.rds") %>%
 # WBIC sheet ----
 
 wbic_county_ais <-
-  read_excel(paste0(DATA_DIR, "WatersWithAIS-2025.xlsx")) %>%
+  read_excel(data_dir("WatersWithAIS-2025.xlsx")) %>%
   clean_names() %>%
   select(
     wbic = waterbody_id_code_wbic,
@@ -130,13 +124,12 @@ wbic_names <- wbic_ais %>% distinct(wbic, waterbody_name)
 
 # Waterbody types
 
-waterbody_types <- read_csv(paste0(DATA_DIR, "station_types.csv"))
+waterbody_types <- read_csv(data_dir("station_types.csv"))
 
 # Load data ----
 
-snapshot_years <- 2014:2025
-ais_results_in <-
-  paste0(DATA_DIR, "SSD_", snapshot_years, ".xlsx") %>%
+snapshot_years <- 2014:2025 # UPDATE THIS!
+ais_results_in <- data_dir(paste0("SSD_", snapshot_years, ".xlsx")) %>%
   lapply(read_excel, na = c("", "NA"), guess_max = 1e6) %>%
   bind_rows() %>%
   clean_names() %>%
@@ -194,9 +187,9 @@ stns_invalid_ll <- ais_results_in %>%
     .by = c(station_id, station_name, station_type, latitude, longitude, wbic, waterbody_name)
   )
 
-stns_invalid_ll %>% write_csv(paste0(DATA_DIR, "stns-invalid-ll.csv"))
+stns_invalid_ll %>% write_csv(data_dir("stns-invalid-ll.csv"))
 
-stns_corrected_ll <- read_csv(paste0(DATA_DIR, "stns-corrected-ll.csv")) %>%
+stns_corrected_ll <- read_csv(data_dir("stns-corrected-ll.csv")) %>%
   select(-c(fieldwork_count, years_monitored))
 
 ais_results_in <- join_and_update(ais_results_in, stns_corrected_ll, "station_id")
@@ -223,10 +216,9 @@ stns_without_wbic <- ais_results_in %>%
   arrange(latitude, longitude)
 
 # fill in missing WBICs per Emily's list
-corrected_wbic <- bind_rows(
-  read_csv("data-ais-snapshot-day/stns-corrected-wbics-2024.csv"),
-  read_csv("data-ais-snapshot-day/stns-corrected-wbics-2025.csv")
-) %>%
+corrected_wbic <- data_dir(paste0("stns-corrected-wbics-", c(2024, 2025), ".csv")) %>%
+  lapply(read_csv) %>%
+  bind_rows() %>%
   arrange(wbic) %>%
   distinct(station_id, .keep_all = T)
 
@@ -240,7 +232,7 @@ missing_wbic <- corrected_wbic %>%
 if (nrow(missing_wbic) > 0) {
   warning(nrow(missing_wbic), " stations missing WBIC!")
   print(missing_wbic)
-  missing_wbic %>% write_csv("data-ais-snapshot-day/stns-missing-wbic.csv")
+  missing_wbic %>% write_csv(data_dir("stns-missing-wbic.csv"))
 }
 
 ais_results_in <- join_and_update(ais_results_in, corrected_wbic, "station_id")
@@ -503,13 +495,13 @@ dnr_parameters <- ais_results %>%
 ## Export data ----
 
 ais_results %>%
-  write_csv(str_glue("exports/Snapshot day - All results {Sys.Date()}.csv"))
+  write_csv(data_dir(str_glue("out/Snapshot day - All results {Sys.Date()}.csv")))
 ais_finds %>%
-  write_csv(str_glue("exports/Snapshot day - Positive finds {Sys.Date()}.csv"))
+  write_csv(data_dir(str_glue("out/Snapshot day - Positive finds {Sys.Date()}.csv")))
 ais_groups %>%
-  write_csv(str_glue("exports/Snapshot day - Volunteer names {Sys.Date()}.csv"))
+  write_csv(data_dir(str_glue("out/Snapshot day - Volunteer names {Sys.Date()}.csv")))
 
 
 ## Save image ----
 
-save.image("site/snapshot-day-summary.RData")
+save.image("snapshot_day.RData")

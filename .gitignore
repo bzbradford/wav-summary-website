@@ -7,4 +7,6 @@
 **/.quarto/
 **/_site/
 **/_freeze/
-exports
+
+/.quarto/
+**/*.quarto_ipynb

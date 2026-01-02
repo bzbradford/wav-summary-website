@@ -22,7 +22,7 @@ library(leaflet)
 
 knitr::opts_chunk$set(dev = "png", dev.args = list(type = "cairo-png"))
 
-load("habitat-assessment-summary.RData")
+load("../habitat.RData")
 
 plt_theme <- theme(
   axis.text.x = element_text(face = "bold", size = 10),

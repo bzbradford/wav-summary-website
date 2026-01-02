@@ -2,11 +2,11 @@ project:
   type: website
 
 website:
-  favicon: logo.png
+  favicon: www/logo.png
   title: "Water Action Volunteers"
   back-to-top-navigation: true
   navbar:
-    logo: header.png
+    logo: www/header.png
     title: false
     left:
       - annual-monitoring-summary.qmd
@@ -17,7 +17,7 @@ website:
 format:
   html:
     theme: cosmo
-    css: styles.css
+    css: www/styles.css
     toc: true
     toc-expand: true
     fig-align: center

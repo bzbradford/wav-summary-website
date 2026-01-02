@@ -3,64 +3,72 @@ library(tidyverse)
 library(sf)
 library(leaflet)
 library(janitor)
-library(glue)
 library(gt)
+library(readxl)
 
 rm(list = ls())
 
 
 # Load data ----
 
-ais_results <-
-  list(
-    "data-ais-project-red/WAV Project RED 2008-2014.xlsx",
-    "data-ais-project-red/WAV Project RED 2015-2024.xlsx"
-  ) %>%
-  lapply(readxl::read_excel, na = c("", "NA")) %>%
-  bind_rows() %>%
+# uses data directly from the swims queries
+data_dir <- function(f) file.path("data_swims", f)
+
+ais_in <- read_excel(data_dir("7_wav_RED_fw.xlsx"), na = c("", "NA")) %>%
   clean_names() %>%
-  rename(
-    fsn = fieldwork_seq_no,
-    datetime = start_date_time,
-    station_name = primary_station_name) %>%
-  mutate(date = as.Date(datetime), year = year(date)) %>%
   select(
-    fsn,
-    sample_header = sample_header_seq_no,
+    fsn = fieldwork_seq_no,
+    group_seq_no,
+    sample_header_seq_no,
     parameter_code = dnr_parameter_code,
     parameter_name = dnr_parameter_description,
     result = result_value_no,
     result_value = result_amt,
-    datetime, date, year,
-    station_id, station_name, station_type = station_type_desc,
+    datetime = start_date_time,
+    fieldwork_comment,
+    station_id
+  )
+
+names(ais_in)
+
+stns <- read_excel(data_dir("2_wav_all_stns.xlsx")) %>%
+  clean_names() %>%
+  select(
+    station_id,
+    station_name = primary_station_name,
+    station_type = station_type_desc,
     latitude = calc_ll_lat_dd_amt,
     longitude = calc_ll_long_dd_amt,
     county_name,
-    wbic, official_waterbody_name,
-    plan_id, plan_name,
-    fieldwork_comment,
-    group_seq_no
+    wbic,
+    waterbody = official_waterbody_name,
+  ) %>%
+  filter(station_id %in% unique(ais_in$station_id))
+
+names(stns)
+
+ais_results <- ais_in %>%
+  left_join(stns) %>%
+  mutate(
+    date = as_date(datetime),
+    year = year(date),
+    .after = datetime
   ) %>%
   mutate(across(c(latitude, longitude), ~ if_else(.x == 0, NA, .x))) %>%
-  arrange(fsn, sample_header, parameter_code) %>%
-  select(-plan_id, -plan_name) %>%
+  arrange(fsn, sample_header_seq_no, parameter_code) %>%
   distinct()
 
 fieldwork_events <- ais_results %>%
-  select(-sample_header, -starts_with("parameter"), -starts_with("result")) %>%
+  select(
+    -sample_header_seq_no,
+    -starts_with("dnr_parameter"),
+    -starts_with("result")
+  ) %>%
   distinct()
 
-dnr_parameter_names <- ais_results %>%
-  count(parameter_code, parameter_name) %>%
-  filter(n > 1) %>%
-  drop_na() %>%
-  select(-n)
-
 dnr_parameters <- ais_results %>%
-  select(parameter_code) %>%
-  left_join(dnr_parameter_names) %>%
-  drop_na(parameter_name) %>%
-  count(parameter_code, parameter_name)
+  count(parameter_code, parameter_name, sort = T) %>%
+  filter(n > 100)
 
 results_wide <- ais_results %>%
   filter(parameter_code %in% dnr_parameters$parameter_code) %>%
@@ -68,10 +76,11 @@ results_wide <- ais_results %>%
   distinct() %>%
   pivot_wider(names_from = parameter_name, values_from = result, values_fn = ~ paste(.x, collapse = ", "))
 
-ais_groups <-
-  readxl::read_excel("data-ais-project-red/WAV Project RED IP.xlsx") %>%
+
+## interested parties ----
+
+ais_groups <- read_excel(data_dir("1_wav_all_ip_groups.xlsx")) %>%
   clean_names() %>%
-  select(-sample_comment) %>%
   mutate(full_name = case_when(
     is.na(first_name) ~ last_name,
     is.na(last_name) ~ first_name,
@@ -103,23 +112,31 @@ wi_counties <- readRDS("shp/counties.rds") %>%
 wi <- wi_counties %>%
   st_union()
 
-stn_pts <- read_csv("data-ais-project-red/swims-monitoring-stations.csv.gz") %>%
-  clean_names() %>%
+stn_pts <- stns %>%
   select(
     station_id,
-    station_name = primary_station_name,
+    station_name,
     latitude,
     longitude,
     county_name,
     wbic,
-    waterbody_name = official_waterbody_name,
-    station_type = station_type_code) %>%
+    waterbody,
+    station_type
+  ) %>%
   filter(station_id %in% ais_results$station_id) %>%
   filter(latitude > 0, longitude < 0) %>%
   drop_na() %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
 
-load("data-ais-project-red/REDlines.Rda")
+
+load("data_project_red/REDlines.Rda")
+
+# line_stns <- read_rds("data_swims/line_stns.rds") %>%
+#   as_tibble() %>%
+#   st_as_sf() %>%
+#   clean_names() %>%
+#   filter(station_id %in% ais_results$station_id)
+
 stn_lines <- lapply(RED, st_as_sf) %>%
   bind_rows() %>%
   clean_names() %>%
@@ -262,4 +279,4 @@ all_pts$popup = create_popups(all_pts)
 
 ## Save image ----
 
-save.image("site/project-red-summary.RData")
+save.image("project_red.RData")

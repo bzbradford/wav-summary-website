@@ -21,15 +21,17 @@ library(leaflet)
 
 knitr::opts_chunk$set(dev = "png", dev.args = list(type = "cairo-png"))
 
-load("annual-monitoring-summary.RData")
+load("../baseline.RData")
 
+# chart palettes
 pal <- list(
-  a = "YlGnBu",
-  b = "Greens",
-  n = "Oranges",
-  t = "Blues"
+  a = "YlGnBu",  # all
+  b = "Greens",  # baseline
+  n = "Oranges", # nutrient
+  t = "Blues"    # thermistor
 )
 
+# station colors
 clr <- list(
   a = "darksalmon",
   b = "mediumseagreen",

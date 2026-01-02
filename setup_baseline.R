@@ -10,15 +10,18 @@ rm(list = ls())
 
 # Load data ----
 
+data_dir <- function(f) file.path("data_baseline", f)
+
 ## Stations and monitoring data ----
 # Update these from the WAV Dashboard data prep project
-stns <- read_csv("data-monitoring/stn_list.csv")
-baseline <- read_csv("data-monitoring/baseline_data.csv")
-nutrient <- read_csv("data-monitoring/tp_data.csv")
-therm <- read_csv("data-monitoring/therm_data.csv.gz")
-therm_info <- read_csv("data-monitoring/therm_inventory.csv")
+stns <- read_csv(data_dir("stn_list.csv"), show_col_types = F)
+baseline <- read_csv(data_dir("baseline_data.csv"), show_col_types = F)
+nutrient <- read_csv(data_dir("tp_data.csv"), show_col_types = F)
+therm <- read_csv(data_dir("therm_data.csv.gz"), show_col_types = F)
+therm_info <- read_csv(data_dir("therm_inventory.csv"), show_col_types = F)
 
 cur_year <- max(baseline$year)
+cur_year
 
 ## Shapefiles ----
 
@@ -200,25 +203,25 @@ all_vols <-
   mutate(n = sapply(names, length))
 
 # export names
-baseline_vols %>%
-  reframe(name = unlist(names), .by = c(year, n)) %>%
-  arrange(desc(year)) %>%
-  write_csv("exports/volunteer names - baseline.csv")
-
-nutrient_vols %>%
-  reframe(name = unlist(names), .by = c(year, n)) %>%
-  arrange(desc(year)) %>%
-  write_csv("exports/volunteer names - nutrient.csv")
-
-therm_vols %>%
-  reframe(name = unlist(names), .by = c(year, n)) %>%
-  arrange(desc(year)) %>%
-  write_csv("exports/volunteer names - thermistor.csv")
-
-all_vols %>%
-  reframe(name = unlist(names), .by = c(year, n)) %>%
-  arrange(desc(year)) %>%
-  write_csv("exports/volunteer names.csv")
+# baseline_vols %>%
+#   reframe(name = unlist(names), .by = c(year, n)) %>%
+#   arrange(desc(year)) %>%
+#   write_csv("exports/volunteer names - baseline.csv")
+#
+# nutrient_vols %>%
+#   reframe(name = unlist(names), .by = c(year, n)) %>%
+#   arrange(desc(year)) %>%
+#   write_csv("exports/volunteer names - nutrient.csv")
+#
+# therm_vols %>%
+#   reframe(name = unlist(names), .by = c(year, n)) %>%
+#   arrange(desc(year)) %>%
+#   write_csv("exports/volunteer names - thermistor.csv")
+#
+# all_vols %>%
+#   reframe(name = unlist(names), .by = c(year, n)) %>%
+#   arrange(desc(year)) %>%
+#   write_csv("exports/volunteer names.csv")
 
 
 
@@ -281,5 +284,5 @@ addPtsInOut <- function(pts_in, pts_out, pt_color, title, yr = cur_year) {
 
 # Save data image ----
 
-save.image("site/annual-monitoring-summary.RData")
+save.image("baseline.RData")
 
