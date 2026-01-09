@@ -22,10 +22,10 @@ The best way to interact with the data our volunteers collect is to visit our [*
 
 We also have a few special summaries of WAV data including some data that isn't available on our data dashboard yet:
 
--   [**Annual Monitoring Summary**](annual-monitoring-summary.qmd)
+-   [**Annual Monitoring Summary**](page-baseline-monitoring.qmd)
 
--   [**Habitat Assessment Summary**](habitat-assessment-summary.qmd)
+-   [**Habitat Assessment Summary**](page-habitat-assessment.qmd)
 
--   [**Project RED AIS Monitoring Summary**](project-red-summary.qmd)
+-   [**Project RED AIS Monitoring Summary**](page-project-red.qmd)
 
--   [**Snapshot Day AIS Monitoring Summary**](snapshot-day-summary.qmd)
+-   [**Snapshot Day AIS Monitoring Summary**](page-snapshot-day.qmd)

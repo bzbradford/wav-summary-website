@@ -9,10 +9,10 @@ website:
     logo: www/header.png
     title: false
     left:
-      - annual-monitoring-summary.qmd
-      - habitat-assessment-summary.qmd
-      - project-red-summary.qmd
-      - snapshot-day-summary.qmd
+      - page-baseline-monitoring.qmd
+      - page-habitat-assessment.qmd
+      - page-project-red.qmd
+      - page-snapshot-day.qmd
 
 format:
   html:

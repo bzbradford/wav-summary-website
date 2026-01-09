@@ -21,7 +21,7 @@ library(leaflet)
 
 knitr::opts_chunk$set(dev = "png", dev.args = list(type = "cairo-png"))
 
-load("../baseline.RData")
+load("baseline.RData")
 
 # chart palettes
 pal <- list(
@@ -44,9 +44,9 @@ clr <- list(
 ::: callout-note
 Monitoring data includes the following baseline, nutrient, and thermistor datasets:
 
-- **Baseline:** `r formatC(n_distinct(baseline$fsn), big.mark = ",")` fieldwork events at `r formatC(n_distinct(baseline$station_id), big.mark = ",")` stations spanning `r min(baseline$date)` to `r max(baseline$date)`.
-- **Nutrient:** `r formatC(n_distinct(nutrient$fsn), big.mark = ",")` fieldwork events at `r n_distinct(nutrient$station_id)` stations spanning `r min(nutrient$date)` to `r max(nutrient$date)`.
-- **Thermistor:** `r nrow(count(therm, logger_sn, year))` deployments at `r n_distinct(therm$station_id)` stations spanning `r min(therm$date)` to `r max(therm$date)`.
+-   **Baseline:** `r formatC(n_distinct(baseline$fsn), big.mark = ",")` fieldwork events at `r formatC(n_distinct(baseline$station_id), big.mark = ",")` stations spanning `r min(baseline$date)` to `r max(baseline$date)`.
+-   **Nutrient:** `r formatC(n_distinct(nutrient$fsn), big.mark = ",")` fieldwork events at `r n_distinct(nutrient$station_id)` stations spanning `r min(nutrient$date)` to `r max(nutrient$date)`.
+-   **Thermistor:** `r nrow(count(therm, logger_sn, year))` deployments at `r n_distinct(therm$station_id)` stations spanning `r min(therm$date)` to `r max(therm$date)`.
 :::
 
 ```{r fig.height=9}

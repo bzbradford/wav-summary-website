@@ -24,7 +24,7 @@ library(gt)
 
 knitr::opts_chunk$set(dev = "png", dev.args = list(type = "cairo-png"))
 
-load("../project_red.RData")
+load("project_red.RData")
 
 plt_theme <- theme(
   axis.text.x = element_text(face = "bold", size = 10),

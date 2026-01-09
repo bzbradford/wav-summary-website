@@ -3,87 +3,66 @@ library(tidyverse)
 library(janitor)
 library(sf)
 library(leaflet)
+library(readxl)
 
 rm(list = ls())
 
 
 # Load data ----
 
-data_dir <- function(f) file.path("data_habitat", f)
-
-# fieldwork results
-results_in <-
-  data_dir(c(
-    "WAV Habitat Results 2015-2023.xlsx",
-    "WAV Habitat Results 2024.xlsx"
-  )) %>%
-  lapply(readxl::read_excel) %>%
-  bind_rows() %>%
+results <- readxl::read_excel("data_swims/6_wav_hab_fw.xlsx") %>%
   clean_names() %>%
   select(
     fsn = fieldwork_seq_no,
+    gsn = group_seq_no,
+    msn = monit_station_seq_no,
+    datetime = start_date_time,
     parameter_code = dnr_parameter_code,
     parameter_description = dnr_parameter_description,
     result_value = result_amt,
-    dyn_form_code
+    dyn_form_code,
+    fieldwork_comment
   ) %>%
-  mutate(parameter_label = paste(parameter_code, parameter_description), .before = result_value) %>%
+  mutate(
+    date = as_date(datetime),
+    year = year(date),
+    month = month(date),
+    .after = datetime
+  ) %>%
+  mutate(
+    parameter_label = paste(parameter_code, parameter_description),
+    .before = result_value
+  ) %>%
   drop_na(result_value)
 
 # submitters by fieldwork
-submitters_in <-
-  data_dir(c(
-    "WAV Habitat Submitters 2015-2023.xlsx",
-    "WAV Habitat Submitters 2024.xlsx"
-  )) %>%
-  lapply(readxl::read_excel) %>%
-  bind_rows() %>%
+# ip_groups
+people <- read_excel("data_swims/1_wav_all_ip_groups.xlsx") %>%
   clean_names() %>%
-  mutate(
-    # start_datetime = parse_date_time(start_datetime, c("mdY", "mdY IM Op")),
-    date = as.Date(start_datetime),
-    year = year(date),
-    month = month(date),
-    full_name = paste(first_name, last_name),
-    .after = start_datetime
-  ) %>%
   select(
-    fsn = fieldwork_seq_no,
-    datetime = start_datetime,
-    date, year, month,
-    last_name, first_name, full_name,
+    gsn = group_seq_no,
+    last_name,
+    first_name,
     organization_name,
-    primary_email,
-    position_title,
-    fieldwork_comment
+    primary_email
   ) %>%
-  filter(fsn %in% results_in$fsn)
+  filter(gsn %in% unique(results$gsn)) %>%
+  distinct(.keep_all = TRUE) %>%
+  mutate(full_name = paste(first_name, last_name), .before = last_name)
 
-# stations by fieldwork
-fieldwork_stns <-
-  data_dir(c(
-    "WAV Habitat Stations 2015-2023.xlsx",
-    "WAV Habitat Stations 2024.xlsx"
-  )) %>%
-  lapply(readxl::read_excel) %>%
-  bind_rows() %>%
+
+stns <- read_excel("data_swims/2_wav_all_stns.xlsx") %>%
   clean_names() %>%
   select(
-    fsn = fieldwork_seq_no,
+    msn = monit_station_seq_no,
     station_id,
     station_name = primary_station_name,
     latitude = calc_ll_lat_dd_amt,
-    longitude = calc_ll_long_dd_amt
+    longitude = calc_ll_long_dd_amt,
+    wbic,
+    waterbody = official_waterbody_name
   ) %>%
-  mutate(station_id = as.numeric(station_id)) %>%
-  distinct(fsn, .keep_all = T) %>%
-  arrange(fsn) %>%
-  filter(fsn %in% results_in$fsn)
-
-stns <- fieldwork_stns %>%
-  select(-fsn) %>%
-  distinct(station_id, station_name, latitude, longitude) %>%
-  arrange(station_id)
+  filter(msn %in% results$msn)
 
 wi_counties <- readRDS("shp/counties.rds") %>%
   janitor::clean_names()
@@ -100,14 +79,13 @@ stn_counties <- stns.sf %>%
 
 # Fieldwork info ----
 
-fieldwork_info <- submitters_in %>%
-  distinct(fsn, datetime, date, year, month, fieldwork_comment) %>%
-  left_join(fieldwork_stns) %>%
+fieldwork_info <- results %>%
+  distinct(fsn, gsn, msn, datetime, date, year, month, fieldwork_comment) %>%
+  left_join(stns) %>%
   left_join(stn_counties) %>%
-  arrange(fsn) %>%
-  filter(fsn %in% results_in$fsn)
+  arrange(fsn)
 
-fieldwork_times <- submitters_in %>%
+fieldwork_times <- results %>%
   distinct(fsn, datetime, date, year, month)
 
 # should show equal numbers if no duplicates
@@ -137,7 +115,8 @@ stn_fw_years_top2 <- scales::percent(sum(head(stn_fw_years$pct, 2)))
 
 ## fieldwork submitter info ##
 
-hab_submitters <- submitters_in %>%
+hab_submitters <- people %>%
+  left_join(fieldwork_info, relationship = "many-to-many") %>%
   group_by(across(full_name:organization_name)) %>%
   summarize(
     n_years = n_distinct(year),
@@ -146,7 +125,8 @@ hab_submitters <- submitters_in %>%
   ) %>%
   arrange(desc(n_fieldwork))
 
-hab_orgs <- submitters_in %>%
+hab_orgs <- people %>%
+  left_join(fieldwork_info, relationship = "many-to-many") %>%
   replace_na(list(organization_name = "None/Unknown")) %>%
   group_by(organization_name) %>%
   summarize(
@@ -167,9 +147,8 @@ n_solo_submitters <- hab_submitters %>%
 # Results ----
 
 ## Result data
-hab_data <- results_in %>%
-  left_join(fieldwork_stns) %>%
-  left_join(fieldwork_times) %>%
+hab_data <- results %>%
+  left_join(stns) %>%
   arrange(fsn, parameter_code) %>%
   drop_na(
     result_value,
@@ -216,7 +195,7 @@ hab_fsn_less10_complete <- sort(unique(hab_data_less10_complete$fsn))
 #   write_csv("habitat-assessment-score-types.csv")
 
 # should have created the csv below with `score_name` column
-hab_score_names <- read_csv(data_dir("habitat-assessment-score-reference.csv")) %>%
+hab_score_names <- read_csv("data_habitat/habitat-assessment-score-reference.csv") %>%
   select(-parameter_description)
 
 # for plot and some summary stuff

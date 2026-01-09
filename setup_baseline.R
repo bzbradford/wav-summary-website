@@ -10,7 +10,7 @@ rm(list = ls())
 
 # Load data ----
 
-data_dir <- function(f) file.path("data_baseline", f)
+data_dir <- function(f) file.path("../WAV Dashboard/data", f)
 
 ## Stations and monitoring data ----
 # Update these from the WAV Dashboard data prep project
