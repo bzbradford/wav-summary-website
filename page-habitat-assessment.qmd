@@ -251,21 +251,21 @@ The summaries below use only data from the QUAL_FISH_HAB_LESS10 form, intended f
 
 ```{r}
 #| fig-height: 4
-add_rect <- function(min, max, center, label, color, width = 5) {
+add_rect <- function(min, max, label, color, width = 5) {
   list(
     annotate(
       "rect",
-      xmin = min - width / 2,
-      xmax = max + width / 2,
+      xmin = min,
+      xmax = max,
       ymin = 0,
       ymax = Inf,
       fill = color
     ),
     annotate(
       "text",
-      x = center,
+      x = (min + max) / 2,
       y = Inf,
-      label = label,
+      label = sprintf("%s\n(%s-%s)", label, min, if_else(max == 100, 100, max - 1)),
       vjust = 1.25,
       hjust = 0.5
     )
@@ -274,18 +274,23 @@ add_rect <- function(min, max, center, label, color, width = 5) {
 
 hab_data_less10_complete %>%
   filter(parameter_code == 4237) %>%
-  ggplot(aes(result_value)) +
-  add_rect(0, 15, 7.5, "Poor\n(0-19)", alpha("red", .1)) +
-  add_rect(20, 55, 37.5, "Fair\n(20-59)", alpha("orange", .1)) +
-  add_rect(60, 75, 67.5, "Good\n(60-79)", alpha("blue", .1)) +
-  add_rect(80, 100, 90, "Excellent\n(80-100)", alpha("green", .1)) +
-  geom_histogram(
-    aes(fill = after_stat(count)),
-    binwidth = 5,
-    color = "black",
-    linewidth = 0.25) +
+  mutate(bin = cut(result_value, seq(0, 100, 5), include.lowest = TRUE, right = FALSE, ordered_result = TRUE)) %>%
+  summarize(n = n(), .by = bin) %>%
+  arrange(bin) %>%
+  mutate(
+    bin = str_replace_all(bin, "[\\[\\]()]", ""),
+    left = as.numeric(str_split_i(bin, ",", 1)),
+    right = as.numeric(str_split_i(bin, ",", 2)),
+    middle = (left + right) / 2
+  ) %>%
+  ggplot() +
+  add_rect(0, 25, "Poor", alpha("red", .1)) +
+  add_rect(25, 50, "Fair", alpha("orange", .1)) +
+  add_rect(50, 75, "Good", alpha("blue", .1)) +
+  add_rect(75, 100, "Excellent", alpha("green", .1)) +
+  geom_col(aes(x = middle, y = n, fill = n), width = 5, color = "black", linewidth = .25) +
   scale_fill_viridis_c() +
-  scale_x_continuous(breaks = seq(0, 100, 20), expand = expansion(0)) +
+  scale_x_continuous(breaks = seq(0, 100, 10), expand = expansion(c(0, .01))) +
   scale_y_continuous(expand = expansion(c(0, 0.15))) +
   labs(
     x = "Total qualitative fish habitat score (parameter 4237)",

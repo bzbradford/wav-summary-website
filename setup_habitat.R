@@ -207,10 +207,10 @@ hab_data_named_scores <- hab_data_less10_complete %>%
     parameter_code == 4237,
     case_match(
       result_value,
-      0:19 ~ "Poor",
-      20:59 ~ "Fair",
-      60:79 ~ "Good",
-      80:100 ~ "Excellent"
+      75:100 ~ "Excellent",
+      50:74 ~ "Good",
+      25:49 ~ "Fair",
+      0:24 ~ "Poor"
     ),
     score_name
   )) %>%
