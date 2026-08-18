@@ -10,3 +10,8 @@
 
 /.quarto/
 **/*.quarto_ipynb
+
+*.csv
+*.xlsx
+*.rds
+*.Rda

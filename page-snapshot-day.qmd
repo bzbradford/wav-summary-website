@@ -25,7 +25,6 @@ plt_theme <- theme(
   panel.background = element_blank(),
   legend.position = "none"
 )
-
 ```
 
 Snapshot Day is a volunteer AIS (Aquatic Invasive Species) monitoring program. Visit [Water Action Volunteers](https://wateractionvolunteers.org/){target="_blank"} for more information.
@@ -36,66 +35,116 @@ Snapshot Day is a volunteer AIS (Aquatic Invasive Species) monitoring program. V
 
 ```{r fig.height=9}
 ais_pts_labelled <- ais_pts %>%
-  mutate(label = paste0(
-    "<b>Station ", station_id, ": ", station_name, "</b><br>",
-    "Fieldwork date: ", date, ", Waterbody monitored: ", waterbody_name, "<br>",
-    "Species found: ", str_wrap_html(species_found), "<br>",
-    "Fieldwork comment: ", str_wrap_html(fieldwork_comment)
-  ) %>% lapply(shiny::HTML))
+  mutate(
+    label = paste0(
+      "<b>Station ",
+      station_id,
+      ": ",
+      station_name,
+      "</b><br>",
+      "Fieldwork date: ",
+      date,
+      ", Waterbody monitored: ",
+      waterbody_name,
+      "<br>",
+      "Species found: ",
+      str_wrap_html(species_found),
+      "<br>",
+      "Fieldwork comment: ",
+      str_wrap_html(fieldwork_comment)
+    ) %>%
+      lapply(shiny::HTML)
+  )
 
 county_shapes <- wi_counties %>%
   left_join(county_ais_summary) %>%
   mutate(popup = create_popups(.)) %>%
-  mutate(label = paste0(
-    "<b>", county, " County</b> - ",
-    if_else(
-      is.na(species),
-      "Not monitored",
-      paste0(species, " species found<br>Species: ", str_wrap_html(species_found))
-    )
-  ) %>% lapply(shiny::HTML))
+  mutate(
+    label = paste0(
+      "<b>",
+      county,
+      " County</b> - ",
+      if_else(
+        is.na(species),
+        "Not monitored",
+        paste0(
+          species,
+          " species found<br>Species: ",
+          str_wrap_html(species_found)
+        )
+      )
+    ) %>%
+      lapply(shiny::HTML)
+  )
 
 watershed_shapes <- watersheds %>%
   left_join(watershed_ais_summary) %>%
   mutate(popup = create_popups(.)) %>%
-  mutate(label = paste0(
-    "<b>", dnr_watershed_name, " Watershed (", dnr_watershed_code, ")</b> - ",
-    if_else(
-      is.na(species),
-      "Not monitored",
-      paste0(species, " species found<br>Species: ", str_wrap_html(species_found))
-    )
-  ) %>% lapply(shiny::HTML))
+  mutate(
+    label = paste0(
+      "<b>",
+      dnr_watershed_name,
+      " Watershed (",
+      dnr_watershed_code,
+      ")</b> - ",
+      if_else(
+        is.na(species),
+        "Not monitored",
+        paste0(
+          species,
+          " species found<br>Species: ",
+          str_wrap_html(species_found)
+        )
+      )
+    ) %>%
+      lapply(shiny::HTML)
+  )
 
 leaflet() %>%
   addProviderTiles(providers$CartoDB.Positron) %>%
   addPolygons(
     data = county_shapes,
-    label = ~label, popup = ~popup,
-    color = "grey", weight = .5, opacity = .5,
-    fillColor = ~ colorNumeric("viridis", species)(species), fillOpacity = .1,
+    label = ~label,
+    popup = ~popup,
+    color = "grey",
+    weight = .5,
+    opacity = .5,
+    fillColor = ~ colorNumeric("viridis", species)(species),
+    fillOpacity = .1,
     group = "Counties"
   ) %>%
   addPolygons(
     data = watershed_shapes,
-    label = ~label, popup = ~popup,
-    color = "grey", weight = .5, opacity = .5,
-    fillColor = ~ colorNumeric("viridis", species)(species), fillOpacity = .1,
+    label = ~label,
+    popup = ~popup,
+    color = "grey",
+    weight = .5,
+    opacity = .5,
+    fillColor = ~ colorNumeric("viridis", species)(species),
+    fillOpacity = .1,
     group = "Watersheds"
   ) %>%
   addCircleMarkers(
     data = ais_pts_labelled %>% filter(n_species == 0),
-    label = ~label, popup = ~popup,
+    label = ~label,
+    popup = ~popup,
     radius = 4,
-    color = "black", weight = 1, opacity = 1,
-    fillColor = "skyblue", fillOpacity = 1
+    color = "black",
+    weight = 1,
+    opacity = 1,
+    fillColor = "skyblue",
+    fillOpacity = 1
   ) %>%
   addCircleMarkers(
     data = ais_pts_labelled %>% filter(n_species > 0),
-    label = ~label, popup = ~popup,
+    label = ~label,
+    popup = ~popup,
     radius = 4,
-    color = "black", weight = 1, opacity = 1,
-    fillColor = "orange", fillOpacity = 1
+    color = "black",
+    weight = 1,
+    opacity = 1,
+    fillColor = "orange",
+    fillOpacity = 1
   ) %>%
   addLayersControl(overlayGroups = c("Counties", "Watersheds")) %>%
   addFullscreenControl(pseudoFullscreen = T)
@@ -116,12 +165,29 @@ ggplot() +
     data = wi_counties %>%
       left_join(county_counts) %>%
       drop_na(),
-    aes(fill = n), alpha = .5
+    aes(fill = n),
+    alpha = .5
   ) +
   geom_sf(data = wi, fill = NA, lwd = .75) +
-  geom_sf_text(data = wi_counties, aes(label = county), angle = 15, size = 2, alpha = .5) +
-  geom_sf(data = filter(ais_pts, n_species == 0), fill = "skyblue", shape = 24, size = 2.5) +
-  geom_sf(data = filter(ais_pts, n_species > 0), fill = "orange", shape = 24, size = 3) +
+  geom_sf_text(
+    data = wi_counties,
+    aes(label = county),
+    angle = 15,
+    size = 2,
+    alpha = .5
+  ) +
+  geom_sf(
+    data = filter(ais_pts, n_species == 0),
+    fill = "skyblue",
+    shape = 24,
+    size = 2.5
+  ) +
+  geom_sf(
+    data = filter(ais_pts, n_species > 0),
+    fill = "orange",
+    shape = 24,
+    size = 3
+  ) +
   scale_fill_viridis_c(na.value = "grey90") +
   labs(fill = "Stations\nin county\n") +
   theme_void()
@@ -155,7 +221,11 @@ ggplot() +
   theme(
     legend.position = "bottom",
     plot.title = element_text(hjust = .5, margin = margin(t = 4, b = 4)),
-    strip.text = element_text(face = "bold", size = 12, margin = margin(t = 8, b = 2))
+    strip.text = element_text(
+      face = "bold",
+      size = 12,
+      margin = margin(t = 8, b = 2)
+    )
   )
 ```
 
@@ -375,7 +445,10 @@ ais_looked_for <- ais_results %>%
   ) %>%
   mutate(result = tolower(result)) %>%
   mutate(total = n_distinct2(fsn), .by = year) %>%
-  summarize(n = n(), .by = c(year, parameter_code, parameter_name, result, total)) %>%
+  summarize(
+    n = n(),
+    .by = c(year, parameter_code, parameter_name, result, total)
+  ) %>%
   pivot_wider(names_from = result, values_from = n, values_fill = 0) %>%
   mutate(na = total - yes - no) %>%
   mutate(across(c(yes, no, na), ~ .x / total)) %>%
@@ -484,13 +557,15 @@ sumfn <- function(.data, group, ...) {
     waterbodies = n_distinct2(wbic),
     stations = n_distinct2(station_id),
     ...
-  ) %>% mutate(group = group)
+  ) %>%
+    mutate(group = group)
 }
 
 totals <- bind_rows(
   ais_finds %>% sumfn("found"),
   fieldwork_events %>% sumfn("looked"),
-) %>% mutate(year = "(All)")
+) %>%
+  mutate(year = "(All)")
 
 annuals <- bind_rows(
   ais_finds %>% sumfn("found", .by = year),
@@ -506,28 +581,45 @@ df <- bind_rows(totals, annuals)
 df %>%
   arrange(year, group) %>%
   summarize(
-    across(c(counties, watersheds, waterbodies, stations), ~ first(.x) / last(.x)),
+    across(
+      c(counties, watersheds, waterbodies, stations),
+      ~ first(.x) / last(.x)
+    ),
     .by = year
   ) %>%
   pivot_longer(c(counties, watersheds, waterbodies, stations)) %>%
   ggplot(aes(x = year, y = value, fill = value)) +
   geom_col(color = "black", lwd = .1) +
-  geom_text(aes(label = sprintf("%.0f%%", value * 100)), vjust = -.25, size = 3) +
+  geom_text(
+    aes(label = sprintf("%.0f%%", value * 100)),
+    vjust = -.25,
+    size = 3
+  ) +
   scale_fill_viridis_c(labels = scales::label_percent()) +
-  scale_y_continuous(labels = scales::label_percent(), expand = expansion(c(0, .1)), limits = c(0, 1)) +
+  scale_y_continuous(
+    labels = scales::label_percent(),
+    expand = expansion(c(0, .1)),
+    limits = c(0, 1)
+  ) +
   facet_wrap(~ str_to_title(name)) +
   labs(title = "Frequency of AIS presence", x = NULL, y = NULL) +
   plt_theme +
-  theme(axis.text.x = element_text(angle = 90, vjust = .5), legend.position = "none")
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = .5),
+    legend.position = "none"
+  )
 ```
 
 ::: {.callout-note collapse="false" title="Frequency of any AIS presence by year"}
 ```{r}
 df %>%
-  summarize(across(
-    c(counties, watersheds, waterbodies, stations),
-    ~ sprintf("%i / %i (%.0f%%)", .x[1], .x[2], .x[1] / .x[2] * 100)
-  ), .by = year) %>%
+  summarize(
+    across(
+      c(counties, watersheds, waterbodies, stations),
+      ~ sprintf("%i / %i (%.0f%%)", .x[1], .x[2], .x[1] / .x[2] * 100)
+    ),
+    .by = year
+  ) %>%
   to_gt()
 ```
 :::
@@ -561,7 +653,8 @@ sumfn <- function(.data, group, ...) {
     waterbodies = n_distinct2(wbic),
     stations = n_distinct2(station_id),
     ...
-  ) %>% mutate(group = group)
+  ) %>%
+    mutate(group = group)
 }
 
 totals <-
@@ -577,7 +670,8 @@ annuals <-
     fieldwork_events %>% sumfn("looked", .by = county)
   ) %>%
   complete(
-    county, group,
+    county,
+    group,
     fill = list(years = 0, watersheds = 0, waterbodies = 0, stations = 0)
   ) %>%
   arrange(group)
@@ -591,7 +685,10 @@ wi_counties %>%
     df %>%
       arrange(county, group) %>%
       summarize(
-        across(c(years, watersheds, waterbodies, stations), ~ first(.x) / last(.x)),
+        across(
+          c(years, watersheds, waterbodies, stations),
+          ~ first(.x) / last(.x)
+        ),
         .by = county
       )
   }) %>%
@@ -600,7 +697,12 @@ wi_counties %>%
   geom_sf(aes(fill = value)) +
   scale_fill_viridis_c(labels = scales::label_percent()) +
   facet_wrap(~ str_to_title(name), nrow = 1) +
-  labs(title = "Frequency of AIS presence", x = NULL, y = NULL, fill = "Frequency") +
+  labs(
+    title = "Frequency of AIS presence",
+    x = NULL,
+    y = NULL,
+    fill = "Frequency"
+  ) +
   theme(
     plot.title = element_text(margin = margin(t = 10, b = 10)),
     axis.text = element_blank(),
@@ -613,10 +715,13 @@ wi_counties %>%
 ::: {.callout-note collapse="false" title="Frequency of AIS presence by county"}
 ```{r}
 df %>%
-  summarize(across(
-    c(years, watersheds, waterbodies, stations),
-    ~ sprintf("%i / %i (%.0f%%)", .x[1], .x[2], .x[1] / .x[2] * 100)
-  ), .by = county) %>%
+  summarize(
+    across(
+      c(years, watersheds, waterbodies, stations),
+      ~ sprintf("%i / %i (%.0f%%)", .x[1], .x[2], .x[1] / .x[2] * 100)
+    ),
+    .by = county
+  ) %>%
   arrange(county) %>%
   to_gt()
 ```
@@ -655,15 +760,23 @@ new_ais_plt <- function(df, name) {
 
   df %>%
     ggplot(aes(x = value, y = result)) +
-    geom_col(aes(fill = id_type), position = "stack", color = "black", lwd = .1) +
+    geom_col(
+      aes(fill = id_type),
+      position = "stack",
+      color = "black",
+      lwd = .1
+    ) +
     {
-      if (n_distinct(df$year) == 1) geom_text(aes(label = label), position = "stack", hjust = -.2, size = 3)
+      if (n_distinct(df$year) == 1) {
+        geom_text(aes(label = label), position = "stack", hjust = -.2, size = 3)
+      }
     } +
     scale_x_continuous(expand = expansion(c(0, .1))) +
     facet_grid(~year) +
     labs(
       title = paste("Number of", name, "where AIS have been reported"),
-      y = NULL, x = NULL,
+      y = NULL,
+      x = NULL,
       fill = "Identification type"
     ) +
     theme(

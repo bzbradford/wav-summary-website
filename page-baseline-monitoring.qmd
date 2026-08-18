@@ -25,10 +25,10 @@ load("baseline.RData")
 
 # chart palettes
 pal <- list(
-  a = "YlGnBu",  # all
-  b = "Greens",  # baseline
+  a = "YlGnBu", # all
+  b = "Greens", # baseline
   n = "Oranges", # nutrient
-  t = "Blues"    # thermistor
+  t = "Blues" # thermistor
 )
 
 # station colors
@@ -38,15 +38,14 @@ clr <- list(
   n = "orange",
   t = "steelblue"
 )
-
 ```
 
 ::: callout-note
 Monitoring data includes the following baseline, nutrient, and thermistor datasets:
 
--   **Baseline:** `r formatC(n_distinct(baseline$fsn), big.mark = ",")` fieldwork events at `r formatC(n_distinct(baseline$station_id), big.mark = ",")` stations spanning `r min(baseline$date)` to `r max(baseline$date)`.
--   **Nutrient:** `r formatC(n_distinct(nutrient$fsn), big.mark = ",")` fieldwork events at `r n_distinct(nutrient$station_id)` stations spanning `r min(nutrient$date)` to `r max(nutrient$date)`.
--   **Thermistor:** `r nrow(count(therm, logger_sn, year))` deployments at `r n_distinct(therm$station_id)` stations spanning `r min(therm$date)` to `r max(therm$date)`.
+- **Baseline:** `r formatC(n_distinct(baseline$fsn), big.mark = ",")` fieldwork events at `r formatC(n_distinct(baseline$station_id), big.mark = ",")` stations spanning `r min(baseline$date)` to `r max(baseline$date)`.
+- **Nutrient:** `r formatC(n_distinct(nutrient$fsn), big.mark = ",")` fieldwork events at `r n_distinct(nutrient$station_id)` stations spanning `r min(nutrient$date)` to `r max(nutrient$date)`.
+- **Thermistor:** `r nrow(count(therm, logger_sn, year))` deployments at `r n_distinct(therm$station_id)` stations spanning `r min(therm$date)` to `r max(therm$date)`.
 :::
 
 ```{r fig.height=9}
@@ -55,26 +54,58 @@ county_counts <- all_stns %>%
   count(county_name)
 
 ggplot() +
-  geom_sf(data = left_join(counties, county_counts), aes(fill = n), alpha = 0.5) +
+  geom_sf(
+    data = left_join(counties, county_counts),
+    aes(fill = n),
+    alpha = 0.5
+  ) +
   geom_sf(data = state, fill = NA, color = "grey50", linewidth = .5) +
-  geom_sf_text(data = counties, aes(label = county_name), alpha = .5, size = 2.5) +
-  geom_sf(data = filter(all_pts, cur_baseline), aes(color = "Baseline"), shape = 24, size = 3, fill = clr$b) +
-  geom_sf(data = filter(all_pts, cur_nutrient), aes(color = "Nutrient"), shape = 23, size = 3, fill = clr$n) +
-  geom_sf(data = filter(all_pts, cur_therm), aes(color = "Thermistor"), shape = 22, size = 3, fill = clr$t) +
+  geom_sf_text(
+    data = counties,
+    aes(label = county_name),
+    alpha = .5,
+    size = 2.5
+  ) +
+  geom_sf(
+    data = filter(all_pts, cur_baseline),
+    aes(color = "Baseline"),
+    shape = 24,
+    size = 3,
+    fill = clr$b
+  ) +
+  geom_sf(
+    data = filter(all_pts, cur_nutrient),
+    aes(color = "Nutrient"),
+    shape = 23,
+    size = 3,
+    fill = clr$n
+  ) +
+  geom_sf(
+    data = filter(all_pts, cur_therm),
+    aes(color = "Thermistor"),
+    shape = 22,
+    size = 3,
+    fill = clr$t
+  ) +
   scale_fill_viridis_c(na.value = "grey", option = "viridis") +
   scale_color_manual(values = c("black", "black", "black")) +
   guides(
     fill = guide_none(),
-    color = guide_legend(override.aes = list(
-      size = 4,
-      shape = c(24, 23, 22),
-      fill = c(clr$b, clr$n, clr$t)))) +
+    color = guide_legend(
+      override.aes = list(
+        size = 4,
+        shape = c(24, 23, 22),
+        fill = c(clr$b, clr$n, clr$t)
+      )
+    )
+  ) +
   labs(color = "Station type") +
   theme_void() +
   theme(
     plot.title = element_text(hjust = .5),
     legend.position = c(.73, .93),
-    legend.justification = c(0, 1))
+    legend.justification = c(0, 1)
+  )
 ```
 
 ```{r fig.height=7}
@@ -84,26 +115,56 @@ county_counts <- all_stns_by_year %>%
 ggplot() +
   geom_sf(data = state, fill = "grey90", color = NA) +
   geom_sf(data = counties, alpha = .25) +
-  geom_sf(data = left_join(counties, county_counts) %>% drop_na(year), aes(fill = n), alpha = 0.5) +
+  geom_sf(
+    data = left_join(counties, county_counts) %>% drop_na(year),
+    aes(fill = n),
+    alpha = 0.5
+  ) +
   geom_sf(data = state, fill = NA, color = "grey50", linewidth = .5) +
-  geom_sf(data = filter(all_pts_by_year, baseline), aes(color = "Baseline"), shape = 24, size = 1, fill = clr$b) +
-  geom_sf(data = filter(all_pts_by_year, nutrient), aes(color = "Nutrient"), shape = 23, size = 1, fill = clr$n) +
-  geom_sf(data = filter(all_pts_by_year, therm), aes(color = "Thermistor"), shape = 22, size = 1, fill = clr$t) +
+  geom_sf(
+    data = filter(all_pts_by_year, baseline),
+    aes(color = "Baseline"),
+    shape = 24,
+    size = 1,
+    fill = clr$b
+  ) +
+  geom_sf(
+    data = filter(all_pts_by_year, nutrient),
+    aes(color = "Nutrient"),
+    shape = 23,
+    size = 1,
+    fill = clr$n
+  ) +
+  geom_sf(
+    data = filter(all_pts_by_year, therm),
+    aes(color = "Thermistor"),
+    shape = 22,
+    size = 1,
+    fill = clr$t
+  ) +
   scale_fill_viridis_c(na.value = "grey", option = "viridis") +
   scale_color_manual(values = c("black", "black", "black")) +
-  facet_wrap(~ year) +
+  facet_wrap(~year) +
   guides(
     fill = guide_none(),
-    color = guide_legend(override.aes = list(
-      size = 4,
-      shape = c(24, 23, 22),
-      fill = c(clr$b, clr$n, clr$t)))) +
+    color = guide_legend(
+      override.aes = list(
+        size = 4,
+        shape = c(24, 23, 22),
+        fill = c(clr$b, clr$n, clr$t)
+      )
+    )
+  ) +
   labs(color = "Station type") +
   theme_void() +
   theme(
     legend.position = "bottom",
     plot.title = element_text(hjust = .5),
-    strip.text = element_text(face = "bold", size = 12, margin = margin(t = 8, b = 2))
+    strip.text = element_text(
+      face = "bold",
+      size = 12,
+      margin = margin(t = 8, b = 2)
+    )
   )
 ```
 
@@ -118,7 +179,8 @@ all_stns_by_year %>%
   labs(
     title = "Baseline, nutrient, and thermistor data: stations monitored per year",
     y = "Stations monitored",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -140,7 +202,8 @@ baseline %>%
   labs(
     title = "Baseline water quality: stations per year",
     y = "Stations monitored",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -160,7 +223,8 @@ baseline %>%
   labs(
     title = "Baseline water quality: fieldwork events per year",
     y = "Total fieldwork events",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -180,7 +244,8 @@ baseline %>%
   labs(
     title = "Baseline water quality: fieldwork events per station",
     y = "Fieldwork events per station",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -202,9 +267,10 @@ report_baseline_cols <- c(
 
 baseline %>%
   summarize(
-    across(report_baseline_cols, ~sum(!is.na(.x))),
+    across(report_baseline_cols, ~ sum(!is.na(.x))),
     fieldworks = n_distinct(fsn),
-    .by = year) %>%
+    .by = year
+  ) %>%
   pivot_longer(names(report_baseline_cols)) %>%
   mutate(name = factor(name, levels = names(report_baseline_cols))) %>%
   mutate(year = as.character(year)) %>%
@@ -216,17 +282,20 @@ baseline %>%
   facet_wrap(~name, ncol = 3, scales = "free_x") +
   scale_y_continuous(
     labels = scales::label_percent(),
-    expand = expansion(c(0, .1))) +
+    expand = expansion(c(0, .1))
+  ) +
   labs(
     title = "Baseline water quality parameter collection rates",
     y = "Percent of fieldwork events where collected",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(
     strip.background = element_rect(fill = "grey90", color = "grey50"),
     strip.text = element_text(face = "bold"),
     axis.text.x = element_text(size = 8, angle = 30, hjust = 1),
-    legend.position = "none")
+    legend.position = "none"
+  )
 ```
 
 # Total phosphorus data summary
@@ -246,7 +315,8 @@ nutrient %>%
   labs(
     title = "Total phosphorus monitoring: stations per year",
     y = "Stations monitored",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -267,7 +337,8 @@ nutrient %>%
   labs(
     title = "Total phosphorus monitoring: observations per year",
     y = "Total observations",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -288,7 +359,8 @@ nutrient %>%
   labs(
     title = "Total phosphorus monitoring: observations per station",
     y = "Observations per station",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -308,7 +380,8 @@ therm %>%
   labs(
     title = "Continuous temperature monitoring: stations per year",
     y = "Stations monitored",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -327,7 +400,8 @@ therm %>%
   labs(
     title = "Continuous temperature monitoring: average deployment length",
     y = "Average deployment length (days)",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -335,7 +409,7 @@ therm %>%
 ## Deployment time periods
 
 ```{r}
-anchor_date <- make_date(cur_year - 1, 12, 31)
+anchor_date <- make_date(MAX_YEAR - 1, 12, 31)
 therm %>%
   summarize(
     min_day = anchor_date + min(yday),
@@ -349,12 +423,14 @@ therm %>%
     aes(x = min_day, xend = max_day, y = year, yend = year),
     color = "steelblue",
     linewidth = 10,
-    alpha = .05) +
+    alpha = .05
+  ) +
   scale_x_date(date_labels = "%b") +
   labs(
     title = "Continous temperature monitoring: deployment date ranges",
     y = "Year",
-    x = "Month") +
+    x = "Month"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -366,13 +442,23 @@ therm %>%
 ```{r fig.height=8}
 county_counts <- all_stns %>% filter(cur_any) %>% count(county_name)
 ggplot() +
-  geom_sf(data = left_join(counties, county_counts), aes(fill = n), alpha = 0.5) +
-  geom_sf_text(data = counties, aes(label = county_name), alpha = .5, size = 2) +
+  geom_sf(
+    data = left_join(counties, county_counts),
+    aes(fill = n),
+    alpha = 0.5
+  ) +
+  geom_sf_text(
+    data = counties,
+    aes(label = county_name),
+    alpha = .5,
+    size = 2
+  ) +
   addCurPastPts(
     cur_pts = filter(all_pts, cur_any),
     past_pts = filter(all_pts, any & !cur_any),
     pt_color = clr$a,
-    title = "All WAV stations")
+    title = "All WAV stations"
+  )
 ```
 
 ```{r fig.height=6}
@@ -380,26 +466,40 @@ county_counts <- counties %>%
   left_join({
     all_stns_by_year %>%
       count(year, county_name)
-  }) %>% drop_na(year)
+  }) %>%
+  drop_na(year)
 ggplot() +
   geom_sf(data = counties, fill = "grey90", alpha = .25) +
   geom_sf(data = county_counts, aes(fill = n), alpha = 0.5) +
   geom_sf(data = all_pts_by_year, fill = clr$a, shape = 21, size = 1) +
-  scale_fill_viridis_c(na.value = "grey90", limits = c(0, NA), option = "cividis") +
-  facet_wrap(~ year) +
+  scale_fill_viridis_c(
+    na.value = "grey90",
+    limits = c(0, NA),
+    option = "cividis"
+  ) +
+  facet_wrap(~year) +
   labs(
     title = "All WAV station locations by year",
-    fill = "Stations per county") +
+    fill = "Stations per county"
+  ) +
   guides(
-    color = guide_legend(override.aes = list(
-      size = c(4, 2),
-      shape = c(21, 16))),
-    fill = guide_colorsteps(frame.colour = "black", show.limits = T)) +
+    color = guide_legend(
+      override.aes = list(
+        size = c(4, 2),
+        shape = c(21, 16)
+      )
+    ),
+    fill = guide_colorsteps(frame.colour = "black", show.limits = T)
+  ) +
   theme_void() +
   theme(
     legend.position = "bottom",
     plot.title = element_text(hjust = .5, margin = margin(t = 4, b = 4)),
-    strip.text = element_text(face = "bold", size = 12, margin = margin(t = 8, b = 2))
+    strip.text = element_text(
+      face = "bold",
+      size = 12,
+      margin = margin(t = 8, b = 2)
+    )
   )
 ```
 
@@ -409,7 +509,8 @@ all_stns_by_year %>%
   mutate(
     year = as.character(year),
     pct = n / 72,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -418,7 +519,8 @@ all_stns_by_year %>%
   labs(
     title = "Baseline, nutrient, or thermistor data: Counties monitored",
     y = "Number of counties (72 total)",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -428,39 +530,68 @@ all_stns_by_year %>%
 ```{r fig.height=8}
 county_counts <- all_stns %>% filter(cur_baseline) %>% count(county_name)
 ggplot() +
-  geom_sf(data = left_join(counties, county_counts), aes(fill = n), alpha = 0.5) +
-  geom_sf_text(data = counties, aes(label = county_name), alpha = .5, size = 2) +
+  geom_sf(
+    data = left_join(counties, county_counts),
+    aes(fill = n),
+    alpha = 0.5
+  ) +
+  geom_sf_text(
+    data = counties,
+    aes(label = county_name),
+    alpha = .5,
+    size = 2
+  ) +
   addCurPastPts(
     cur_pts = filter(all_pts, cur_baseline),
     past_pts = filter(all_pts, baseline & !cur_baseline),
     pt_color = clr$b,
-    title = "Baseline water quality monitoring stations")
+    title = "Baseline water quality monitoring stations"
+  )
 ```
 
 ```{r fig.height=6}
 county_counts <- counties %>%
   left_join({
     all_stns_by_year %>% filter(baseline) %>% count(year, county_name)
-  }) %>% drop_na(year)
+  }) %>%
+  drop_na(year)
 ggplot() +
   geom_sf(data = counties, fill = "grey90", alpha = .25) +
   geom_sf(data = county_counts, aes(fill = n), alpha = 0.5) +
-  geom_sf(data = all_pts_by_year %>% filter(baseline), fill = clr$b, shape = 21, size = 1) +
-  scale_fill_viridis_c(na.value = "grey90", limits = c(0, NA), option = "cividis") +
-  facet_wrap(~ year) +
+  geom_sf(
+    data = all_pts_by_year %>% filter(baseline),
+    fill = clr$b,
+    shape = 21,
+    size = 1
+  ) +
+  scale_fill_viridis_c(
+    na.value = "grey90",
+    limits = c(0, NA),
+    option = "cividis"
+  ) +
+  facet_wrap(~year) +
   labs(
     title = "All baseline station locations by year",
-    fill = "Stations per county") +
+    fill = "Stations per county"
+  ) +
   guides(
-    color = guide_legend(override.aes = list(
-      size = c(4, 2),
-      shape = c(21, 16))),
-    fill = guide_colorsteps(frame.colour = "black", show.limits = T)) +
+    color = guide_legend(
+      override.aes = list(
+        size = c(4, 2),
+        shape = c(21, 16)
+      )
+    ),
+    fill = guide_colorsteps(frame.colour = "black", show.limits = T)
+  ) +
   theme_void() +
   theme(
     legend.position = "bottom",
     plot.title = element_text(hjust = .5, margin = margin(t = 4, b = 4)),
-    strip.text = element_text(face = "bold", size = 12, margin = margin(t = 8, b = 2))
+    strip.text = element_text(
+      face = "bold",
+      size = 12,
+      margin = margin(t = 8, b = 2)
+    )
   )
 ```
 
@@ -472,7 +603,8 @@ baseline %>%
   mutate(
     year = as.character(year),
     pct = n / 72,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -481,7 +613,8 @@ baseline %>%
   labs(
     title = "Baseline water quality: Counties monitored",
     y = "Number of counties (72 total)",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -491,13 +624,23 @@ baseline %>%
 ```{r fig.height=8}
 county_counts <- all_stns %>% filter(cur_nutrient) %>% count(county_name)
 ggplot() +
-  geom_sf(data = left_join(counties, county_counts), aes(fill = n), alpha = 0.5) +
-  geom_sf_text(data = counties, aes(label = county_name), alpha = .5, size = 2) +
+  geom_sf(
+    data = left_join(counties, county_counts),
+    aes(fill = n),
+    alpha = 0.5
+  ) +
+  geom_sf_text(
+    data = counties,
+    aes(label = county_name),
+    alpha = .5,
+    size = 2
+  ) +
   addCurPastPts(
     cur_pts = filter(all_pts, cur_nutrient),
     past_pts = filter(all_pts, nutrient & !cur_nutrient),
     pt_color = clr$n,
-    title = "Total phosphorus monitoring stations")
+    title = "Total phosphorus monitoring stations"
+  )
 ```
 
 ```{r fig.height=6}
@@ -506,26 +649,45 @@ county_counts <- counties %>%
     all_stns_by_year %>%
       filter(nutrient) %>%
       count(year, county_name)
-  }) %>% drop_na(year)
+  }) %>%
+  drop_na(year)
 ggplot() +
   geom_sf(data = counties, fill = "grey90", alpha = .25) +
   geom_sf(data = county_counts, aes(fill = n), alpha = 0.5) +
-  geom_sf(data = all_pts_by_year %>% filter(nutrient), fill = clr$n, shape = 21, size = 1) +
-  scale_fill_viridis_c(na.value = "grey90", limits = c(0, NA), option = "cividis") +
-  facet_wrap(~ year) +
+  geom_sf(
+    data = all_pts_by_year %>% filter(nutrient),
+    fill = clr$n,
+    shape = 21,
+    size = 1
+  ) +
+  scale_fill_viridis_c(
+    na.value = "grey90",
+    limits = c(0, NA),
+    option = "cividis"
+  ) +
+  facet_wrap(~year) +
   labs(
     title = "All nutrient station locations by year",
-    fill = "Stations per county") +
+    fill = "Stations per county"
+  ) +
   guides(
-    color = guide_legend(override.aes = list(
-      size = c(4, 2),
-      shape = c(21, 16))),
-    fill = guide_colorsteps(frame.colour = "black", show.limits = T)) +
+    color = guide_legend(
+      override.aes = list(
+        size = c(4, 2),
+        shape = c(21, 16)
+      )
+    ),
+    fill = guide_colorsteps(frame.colour = "black", show.limits = T)
+  ) +
   theme_void() +
   theme(
     legend.position = "bottom",
     plot.title = element_text(hjust = .5, margin = margin(t = 4, b = 4)),
-    strip.text = element_text(face = "bold", size = 12, margin = margin(t = 8, b = 2))
+    strip.text = element_text(
+      face = "bold",
+      size = 12,
+      margin = margin(t = 8, b = 2)
+    )
   )
 ```
 
@@ -537,7 +699,8 @@ nutrient %>%
   mutate(
     year = as.character(year),
     pct = n / 72,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -546,7 +709,8 @@ nutrient %>%
   labs(
     title = "Total phosphorus: Counties monitored",
     y = "Number of counties (72 total)",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -556,13 +720,23 @@ nutrient %>%
 ```{r fig.height=8}
 county_counts <- all_stns %>% filter(cur_therm) %>% count(county_name)
 ggplot() +
-  geom_sf(data = left_join(counties, county_counts), aes(fill = n), alpha = 0.5) +
-  geom_sf_text(data = counties, aes(label = county_name), alpha = .5, size = 2) +
+  geom_sf(
+    data = left_join(counties, county_counts),
+    aes(fill = n),
+    alpha = 0.5
+  ) +
+  geom_sf_text(
+    data = counties,
+    aes(label = county_name),
+    alpha = .5,
+    size = 2
+  ) +
   addCurPastPts(
     past_pts = filter(all_pts, therm & !cur_therm),
     cur_pts = filter(all_pts, cur_therm),
     pt_color = clr$t,
-    title = "Continuous temperature monitoring stations")
+    title = "Continuous temperature monitoring stations"
+  )
 ```
 
 ```{r fig.height=6}
@@ -571,26 +745,45 @@ county_counts <- counties %>%
     all_stns_by_year %>%
       filter(therm) %>%
       count(year, county_name)
-  }) %>% drop_na(year)
+  }) %>%
+  drop_na(year)
 ggplot() +
   geom_sf(data = counties, fill = "grey90", alpha = .25) +
   geom_sf(data = county_counts, aes(fill = n), alpha = 0.5) +
-  geom_sf(data = all_pts_by_year %>% filter(therm), fill = clr$t, shape = 21, size = 1) +
-  scale_fill_viridis_c(na.value = "grey90", limits = c(0, NA), option = "cividis") +
-  facet_wrap(~ year) +
+  geom_sf(
+    data = all_pts_by_year %>% filter(therm),
+    fill = clr$t,
+    shape = 21,
+    size = 1
+  ) +
+  scale_fill_viridis_c(
+    na.value = "grey90",
+    limits = c(0, NA),
+    option = "cividis"
+  ) +
+  facet_wrap(~year) +
   labs(
     title = "All thermistor station locations by year",
-    fill = "Stations per county") +
+    fill = "Stations per county"
+  ) +
   guides(
-    color = guide_legend(override.aes = list(
-      size = c(4, 2),
-      shape = c(21, 16))),
-    fill = guide_colorsteps(frame.colour = "black", show.limits = T)) +
+    color = guide_legend(
+      override.aes = list(
+        size = c(4, 2),
+        shape = c(21, 16)
+      )
+    ),
+    fill = guide_colorsteps(frame.colour = "black", show.limits = T)
+  ) +
   theme_void() +
   theme(
     legend.position = "bottom",
     plot.title = element_text(hjust = .5, margin = margin(t = 4, b = 4)),
-    strip.text = element_text(face = "bold", size = 12, margin = margin(t = 8, b = 2))
+    strip.text = element_text(
+      face = "bold",
+      size = 12,
+      margin = margin(t = 8, b = 2)
+    )
   )
 ```
 
@@ -602,7 +795,8 @@ therm %>%
   mutate(
     year = as.character(year),
     pct = n / 72,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -611,7 +805,8 @@ therm %>%
   labs(
     title = "Continous water temperature: Counties monitored",
     y = "Number of counties (72 total)",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -631,7 +826,8 @@ ggplot() +
     cur_pts = filter(all_pts, cur_baseline),
     past_pts = filter(all_pts, baseline & !cur_baseline),
     pt_color = clr$a,
-    title = "All WAV stations on HUC8 subbasins")
+    title = "All WAV stations on HUC8 subbasins"
+  )
 ```
 
 ```{r}
@@ -640,7 +836,8 @@ all_stns_by_year %>%
   mutate(
     year = as.character(year),
     pct = n / n_huc8,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -649,7 +846,8 @@ all_stns_by_year %>%
   labs(
     title = "Baseline, nutrient, and thermistor data: HUC8 subbasins monitored",
     y = sprintf("Number of subbasins (%s total)", n_huc8),
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -667,7 +865,8 @@ ggplot() +
     cur_pts = filter(all_pts, cur_baseline),
     past_pts = filter(all_pts, baseline & !cur_baseline),
     pt_color = clr$b,
-    title = "Baseline water quality monitoring stations on HUC8 subbasins")
+    title = "Baseline water quality monitoring stations on HUC8 subbasins"
+  )
 ```
 
 ```{r}
@@ -678,7 +877,8 @@ baseline %>%
   mutate(
     year = as.character(year),
     pct = n / n_huc8,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -687,7 +887,8 @@ baseline %>%
   labs(
     title = "Baseline water quality: HUC8 subbasins monitored",
     y = sprintf("Number of subbasins (%s total)", n_huc8),
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -705,7 +906,8 @@ ggplot() +
     cur_pts = filter(all_pts, cur_nutrient),
     past_pts = filter(all_pts, nutrient & !cur_nutrient),
     pt_color = clr$n,
-    title = "Nutrient monitoring stations on HUC8 subbasins")
+    title = "Nutrient monitoring stations on HUC8 subbasins"
+  )
 ```
 
 ```{r}
@@ -716,7 +918,8 @@ nutrient %>%
   mutate(
     year = as.character(year),
     pct = n / n_huc8,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -725,7 +928,8 @@ nutrient %>%
   labs(
     title = "Total phosphorus: HUC8 subbasins monitored",
     y = sprintf("Number of subbasins (%s total)", n_huc8),
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -743,7 +947,8 @@ ggplot() +
     cur_pts = filter(all_pts, cur_therm),
     past_pts = filter(all_pts, therm & !cur_therm),
     pt_color = clr$t,
-    title = "Continous temperature monitoring stations on HUC8 subbasins")
+    title = "Continous temperature monitoring stations on HUC8 subbasins"
+  )
 ```
 
 ```{r}
@@ -754,7 +959,8 @@ therm %>%
   mutate(
     year = as.character(year),
     pct = n / n_huc8,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -763,7 +969,8 @@ therm %>%
   labs(
     title = "Continuous temperature: HUC8 subbasins monitored",
     y = sprintf("Number of subbasins (%s total)", n_huc8),
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -783,7 +990,8 @@ ggplot() +
     cur_pts = filter(all_pts, cur_any),
     past_pts = filter(all_pts, any & !cur_any),
     pt_color = clr$a,
-    title = "All WAV stations on HUC10 watersheds")
+    title = "All WAV stations on HUC10 watersheds"
+  )
 ```
 
 ```{r}
@@ -792,7 +1000,8 @@ all_stns_by_year %>%
   mutate(
     year = as.character(year),
     pct = n / n_huc10,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -801,7 +1010,8 @@ all_stns_by_year %>%
   labs(
     title = "Continuous temperature: HUC10 watersheds monitored",
     y = sprintf("Number of watersheds (%s total)", n_huc10),
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -819,7 +1029,8 @@ ggplot() +
     cur_pts = filter(all_pts, cur_baseline),
     past_pts = filter(all_pts, baseline & !cur_baseline),
     pt_color = clr$b,
-    title = "Baseline water quality monitoring stations on HUC10 watersheds")
+    title = "Baseline water quality monitoring stations on HUC10 watersheds"
+  )
 ```
 
 ```{r}
@@ -830,7 +1041,8 @@ baseline %>%
   mutate(
     year = as.character(year),
     pct = n / n_huc10,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -839,7 +1051,8 @@ baseline %>%
   labs(
     title = "Continuous temperature: HUC10 watersheds monitored",
     y = sprintf("Number of watersheds (%s total)", n_huc10),
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -857,7 +1070,8 @@ ggplot() +
     cur_pts = filter(all_pts, cur_nutrient),
     past_pts = filter(all_pts, nutrient & !cur_nutrient),
     pt_color = clr$n,
-    title = "Nutrient monitoring stations on HUC10 watersheds")
+    title = "Nutrient monitoring stations on HUC10 watersheds"
+  )
 ```
 
 ```{r}
@@ -868,7 +1082,8 @@ nutrient %>%
   mutate(
     year = as.character(year),
     pct = n / n_huc10,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -877,7 +1092,8 @@ nutrient %>%
   labs(
     title = "Continuous temperature: HUC10 watersheds monitored",
     y = sprintf("Number of watersheds (%s total)", n_huc10),
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -895,7 +1111,8 @@ ggplot() +
     cur_pts = filter(all_pts, cur_therm),
     past_pts = filter(all_pts, therm & !cur_therm),
     pt_color = clr$t,
-    title = "Continous temperature monitoring stations on HUC10 watersheds")
+    title = "Continous temperature monitoring stations on HUC10 watersheds"
+  )
 ```
 
 ```{r}
@@ -906,7 +1123,8 @@ therm %>%
   mutate(
     year = as.character(year),
     pct = n / n_huc10,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -915,7 +1133,8 @@ therm %>%
   labs(
     title = "Continuous temperature: HUC10 watersheds monitored",
     y = sprintf("Number of watersheds (%s total)", n_huc10),
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -929,7 +1148,11 @@ counts <- all_stns %>% filter(cur_any) %>% count(NkePlan)
 counts <- nkes %>% left_join(counts, join_by(PlanId == NkePlan)) %>% drop_na(n)
 ggplot() +
   addBasemaps() +
-  geom_sf(data = nkes, color = alpha("steelblue", .5), fill = alpha("lightsteelblue", .75)) +
+  geom_sf(
+    data = nkes,
+    color = alpha("steelblue", .5),
+    fill = alpha("lightsteelblue", .75)
+  ) +
   geom_sf(data = counts, aes(fill = n), alpha = .5) +
   addPtsInOut(
     pts_in = all_pts %>% filter(cur_any & !is.na(NkePlan)),
@@ -945,7 +1168,8 @@ all_stns_by_year %>%
   mutate(
     year = as.character(year),
     pct = n / total,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -954,7 +1178,8 @@ all_stns_by_year %>%
   labs(
     title = "Baseline, nutrient, and thermistor data: Number of stations in NKE plan watersheds",
     y = "Number of stations",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -966,7 +1191,11 @@ counts <- all_stns %>% filter(cur_baseline) %>% count(NkePlan)
 counts <- nkes %>% left_join(counts, join_by(PlanId == NkePlan)) %>% drop_na(n)
 ggplot() +
   addBasemaps() +
-  geom_sf(data = nkes, color = alpha("steelblue", .5), fill = alpha("lightsteelblue", .75)) +
+  geom_sf(
+    data = nkes,
+    color = alpha("steelblue", .5),
+    fill = alpha("lightsteelblue", .75)
+  ) +
   geom_sf(data = counts, aes(fill = n), alpha = .5) +
   addPtsInOut(
     pts_in = all_pts %>% filter(cur_baseline & !is.na(NkePlan)),
@@ -984,7 +1213,8 @@ baseline %>%
   mutate(
     year = as.character(year),
     pct = n / total,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -993,7 +1223,8 @@ baseline %>%
   labs(
     title = "Baseline water quality: Number of stations in NKE plan watersheds",
     y = "Number of stations",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -1005,7 +1236,11 @@ counts <- all_stns %>% filter(cur_nutrient) %>% count(NkePlan)
 counts <- nkes %>% left_join(counts, join_by(PlanId == NkePlan)) %>% drop_na(n)
 ggplot() +
   addBasemaps() +
-  geom_sf(data = nkes, color = alpha("steelblue", .5), fill = alpha("lightsteelblue", .75)) +
+  geom_sf(
+    data = nkes,
+    color = alpha("steelblue", .5),
+    fill = alpha("lightsteelblue", .75)
+  ) +
   geom_sf(data = counts, aes(fill = n), alpha = .5) +
   addPtsInOut(
     pts_in = all_pts %>% filter(cur_nutrient & !is.na(NkePlan)),
@@ -1023,7 +1258,8 @@ nutrient %>%
   mutate(
     year = as.character(year),
     pct = n / total,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -1032,7 +1268,8 @@ nutrient %>%
   labs(
     title = "Nutrient monitoring: Number of stations in NKE plan watersheds",
     y = "Number of stations",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -1044,7 +1281,11 @@ counts <- all_stns %>% filter(cur_therm) %>% count(NkePlan)
 counts <- nkes %>% left_join(counts, join_by(PlanId == NkePlan)) %>% drop_na(n)
 ggplot() +
   addBasemaps() +
-  geom_sf(data = nkes, color = alpha("steelblue", .5), fill = alpha("lightsteelblue", .75)) +
+  geom_sf(
+    data = nkes,
+    color = alpha("steelblue", .5),
+    fill = alpha("lightsteelblue", .75)
+  ) +
   geom_sf(data = counts, aes(fill = n), alpha = .5) +
   addPtsInOut(
     pts_in = all_pts %>% filter(cur_therm & !is.na(NkePlan)),
@@ -1062,7 +1303,8 @@ therm %>%
   mutate(
     year = as.character(year),
     pct = n / total,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -1071,7 +1313,8 @@ therm %>%
   labs(
     title = "Continuous temperature: Number of stations in NKE plan watersheds",
     y = "Number of stations",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -1092,7 +1335,8 @@ ggplot() +
     pts_in = all_pts %>% filter(cur_any & Huc8Nearshore),
     pts_out = all_pts %>% filter(cur_any & is.na(Huc8Nearshore)),
     pt_color = clr$a,
-    title = "All WAV monitoring stations in HUC8 nearshore subbasins")
+    title = "All WAV monitoring stations in HUC8 nearshore subbasins"
+  )
 ```
 
 ```{r}
@@ -1101,7 +1345,8 @@ all_stns_by_year %>%
   mutate(
     year = as.character(year),
     pct = n / total,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -1110,7 +1355,8 @@ all_stns_by_year %>%
   labs(
     title = "Baseline, nutrient, and thermistor data: Number of stations in HUC8 nearshore subbasins",
     y = "Number of stations",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -1129,7 +1375,8 @@ ggplot() +
     pts_in = all_pts %>% filter(cur_baseline & Huc8Nearshore),
     pts_out = all_pts %>% filter(cur_baseline & is.na(Huc8Nearshore)),
     pt_color = clr$b,
-    title = "Baseline water quality monitoring stations in HUC8 nearshore subbasins")
+    title = "Baseline water quality monitoring stations in HUC8 nearshore subbasins"
+  )
 ```
 
 ```{r}
@@ -1139,7 +1386,8 @@ all_stns_by_year %>%
   mutate(
     year = as.character(year),
     pct = n / total,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -1148,7 +1396,8 @@ all_stns_by_year %>%
   labs(
     title = "Baseline water quality monitoring: Number of stations in HUC8 nearshore subbasins",
     y = "Number of stations",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -1167,7 +1416,8 @@ ggplot() +
     pts_in = all_pts %>% filter(cur_nutrient & Huc8Nearshore),
     pts_out = all_pts %>% filter(cur_nutrient & is.na(Huc8Nearshore)),
     pt_color = clr$n,
-    title = "Nutrient monitoring stations in HUC8 nearshore subbasins")
+    title = "Nutrient monitoring stations in HUC8 nearshore subbasins"
+  )
 ```
 
 ```{r}
@@ -1177,7 +1427,8 @@ all_stns_by_year %>%
   mutate(
     year = as.character(year),
     pct = n / total,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -1186,7 +1437,8 @@ all_stns_by_year %>%
   labs(
     title = "Nutrient monitoring: Number of stations in HUC8 nearshore subbasins",
     y = "Number of stations",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -1205,7 +1457,8 @@ ggplot() +
     pts_in = all_pts %>% filter(cur_therm & Huc8Nearshore),
     pts_out = all_pts %>% filter(cur_therm & is.na(Huc8Nearshore)),
     pt_color = clr$t,
-    title = "Continuous temperature monitoring stations in HUC8 nearshore subbasins")
+    title = "Continuous temperature monitoring stations in HUC8 nearshore subbasins"
+  )
 ```
 
 ```{r}
@@ -1215,7 +1468,8 @@ all_stns_by_year %>%
   mutate(
     year = as.character(year),
     pct = n / total,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -1224,7 +1478,8 @@ all_stns_by_year %>%
   labs(
     title = "Continuous temperature monitoring: Number of stations in HUC8 nearshore subbasins",
     y = "Number of stations",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -1244,7 +1499,8 @@ ggplot() +
     pts_in = all_pts %>% filter(cur_any & Huc10Nearshore),
     pts_out = all_pts %>% filter(cur_any & is.na(Huc10Nearshore)),
     pt_color = clr$a,
-    title = "All WAV monitoring stations in HUC10 nearshore watersheds")
+    title = "All WAV monitoring stations in HUC10 nearshore watersheds"
+  )
 ```
 
 ```{r}
@@ -1253,7 +1509,8 @@ all_stns_by_year %>%
   mutate(
     year = as.character(year),
     pct = n / total,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -1262,7 +1519,8 @@ all_stns_by_year %>%
   labs(
     title = "Baseline, nutrient, and thermistor data: Number of stations in HUC10 nearshore watersheds",
     y = "Number of stations",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -1280,7 +1538,8 @@ ggplot() +
     pts_in = all_pts %>% filter(cur_baseline & Huc10Nearshore),
     pts_out = all_pts %>% filter(cur_baseline & is.na(Huc10Nearshore)),
     pt_color = clr$b,
-    title = "Baseline water quality monitoring stations in HUC10 nearshore watersheds")
+    title = "Baseline water quality monitoring stations in HUC10 nearshore watersheds"
+  )
 ```
 
 ```{r}
@@ -1290,7 +1549,8 @@ all_stns_by_year %>%
   mutate(
     year = as.character(year),
     pct = n / total,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -1299,7 +1559,8 @@ all_stns_by_year %>%
   labs(
     title = "Baseline water quality monitoring: Number of stations in HUC10 nearshore watersheds",
     y = "Number of stations",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -1317,7 +1578,8 @@ ggplot() +
     pts_in = all_pts %>% filter(cur_nutrient & Huc10Nearshore),
     pts_out = all_pts %>% filter(cur_nutrient & is.na(Huc10Nearshore)),
     pt_color = clr$n,
-    title = "Nutrient monitoring stations in HUC10 nearshore watersheds")
+    title = "Nutrient monitoring stations in HUC10 nearshore watersheds"
+  )
 ```
 
 ```{r}
@@ -1327,7 +1589,8 @@ all_stns_by_year %>%
   mutate(
     year = as.character(year),
     pct = n / total,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -1336,7 +1599,8 @@ all_stns_by_year %>%
   labs(
     title = "Nutrient monitoring: Number of stations in HUC10 nearshore watersheds",
     y = "Number of stations",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -1354,7 +1618,8 @@ ggplot() +
     pts_in = all_pts %>% filter(cur_therm & Huc10Nearshore),
     pts_out = all_pts %>% filter(cur_therm & is.na(Huc10Nearshore)),
     pt_color = clr$t,
-    title = "Continuous temperature monitoring stations in HUC10 nearshore watersheds")
+    title = "Continuous temperature monitoring stations in HUC10 nearshore watersheds"
+  )
 ```
 
 ```{r}
@@ -1364,7 +1629,8 @@ all_stns_by_year %>%
   mutate(
     year = as.character(year),
     pct = n / total,
-    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))) %>%
+    label = sprintf("%s\n(%s)", n, scales::percent(pct, 1))
+  ) %>%
   ggplot(aes(x = year, y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = label), vjust = -.5) +
@@ -1373,7 +1639,8 @@ all_stns_by_year %>%
   labs(
     title = "Continuous temperature monitoring: Number of stations in HUC10 nearshore watersheds",
     y = "Number of stations",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -1397,7 +1664,8 @@ all_vols %>%
   labs(
     title = "Baseline, nutrient, or thermistor data: Number of volunteers",
     y = "Number of volunteers",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -1415,7 +1683,8 @@ baseline_vols %>%
   labs(
     title = "Baseline water quality: Number of volunteers",
     y = "Number of volunteers",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -1433,7 +1702,8 @@ nutrient_vols %>%
   labs(
     title = "Nutrient monitoring: Number of volunteers",
     y = "Number of volunteers",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```
@@ -1451,7 +1721,8 @@ therm_vols %>%
   labs(
     title = "Continuous temperature: Number of volunteers",
     y = "Number of volunteers",
-    x = "Year") +
+    x = "Year"
+  ) +
   theme_classic() +
   theme(legend.position = "none")
 ```

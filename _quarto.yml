@@ -1,5 +1,6 @@
 project:
   type: website
+  output-dir: _site
 
 website:
   favicon: www/logo.png
@@ -25,10 +26,7 @@ format:
     fig-width: 8
     code-fold: true
 
-editor: visual
-
 execute:
   freeze: auto
   echo: false
   warning: false
-
