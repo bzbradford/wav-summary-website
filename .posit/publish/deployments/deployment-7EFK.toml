@@ -2,7 +2,7 @@
 "$schema" = "https://cdn.posit.co/publisher/schemas/posit-publishing-record-schema-v3.json"
 server_type = "connect"
 server_url = "https://connect.doit.wisc.edu"
-client_version = "2.9.19"
+client_version = "2.11.3"
 created_at = "2026-08-18T15:53:59.813Z"
 type = "html"
 configuration_name = "Water Action Volunteers-EMDR"
@@ -10,9 +10,9 @@ id = "c6a55243-ef45-45fd-a23f-28b4c48bc8e4"
 dashboard_url = "https://connect.doit.wisc.edu/connect/#/apps/c6a55243-ef45-45fd-a23f-28b4c48bc8e4"
 direct_url = "https://connect.doit.wisc.edu/content/c6a55243-ef45-45fd-a23f-28b4c48bc8e4/"
 logs_url = "https://connect.doit.wisc.edu/connect/#/apps/c6a55243-ef45-45fd-a23f-28b4c48bc8e4/logs"
-deployed_at = "2026-08-18T15:56:31.723Z"
-bundle_id = "5135"
-bundle_url = "https://connect.doit.wisc.edu/__api__/v1/content/c6a55243-ef45-45fd-a23f-28b4c48bc8e4/bundles/5135/download"
+deployed_at = "2026-08-25T21:59:25.970Z"
+bundle_id = "5163"
+bundle_url = "https://connect.doit.wisc.edu/__api__/v1/content/c6a55243-ef45-45fd-a23f-28b4c48bc8e4/bundles/5163/download"
 files = [
     ".posit/publish/Water Action Volunteers-EMDR.toml",
     ".posit/publish/deployments/deployment-7EFK.toml",
@@ -207,7 +207,7 @@ files = [
 "$schema" = "https://cdn.posit.co/publisher/schemas/posit-publishing-schema-v3.json"
 type = "html"
 entrypoint = "_site/index.html"
-title = "Water Action Volunteers"
+title = "WAV Monitoring Summaries"
 source = "index.qmd"
 files = [
     "/_site",

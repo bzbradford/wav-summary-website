@@ -54,7 +54,7 @@ to_dt <- function(.data) {
       .data,
       extensions = "Buttons",
       options = list(
-        lengthMenu = c(5, 10, 25),
+        lengthMenu = c(5, 25),
         dom = "Bfrtipl",
         buttons = c("copy", "csv", "excel")
       )
@@ -74,7 +74,7 @@ to_gt <- function(.data) {
 wi_counties <- readRDS("shp/counties.rds") |>
   clean_names() |>
   rename(county = county_name) |>
-  rmapshaper::ms_simplify(.1)
+  rmapshaper::ms_simplify(0.1)
 
 wi <- wi_counties |>
   st_union()
@@ -86,7 +86,7 @@ watersheds <- read_rds("shp/dnr_watersheds.rds") |>
 # WBIC sheet ----
 
 wbic_county_ais <-
-  read_excel(data_dir("WatersWithAIS-2025.xlsx")) |>
+  read_excel(data_dir("WatersWithAIS-2026.xlsx")) |>
   clean_names() |>
   select(
     wbic = waterbody_id_code_wbic,
@@ -131,12 +131,18 @@ waterbody_types <- read_csv(data_dir("station_types.csv"))
 
 # Load data ----
 
-snapshot_years <- 2014:2025 # UPDATE THIS!
-ais_results_in <- data_dir(paste0("SSD_", snapshot_years, ".xlsx")) |>
-  lapply(read_excel, na = c("", "NA"), guess_max = 1e6) |>
+snapshot_years <- 2014:2026 # UPDATE THIS!
+ais_results_in <- lapply(snapshot_years, function(yr) {
+  file <- data_dir(paste0("SSD_", yr, ".xlsx"))
+  read_excel(file, na = c("", "NA"), col_types = "text")
+}) |>
   bind_rows() |>
+  mutate(across(everything(), parse_guess)) |>
   clean_names() |>
-  mutate(across(contains("_date"), ~ parse_date_time(.x, "mdy IMs p"))) |>
+  mutate(across(
+    contains("_date"),
+    ~ parse_date_time(.x, c("mdy", "mdy IMs p"), tz = "America/Chicago")
+  )) |>
   select(
     fsn = fieldwork_seq_no,
     parameter_code = dnr_parameter_code,
@@ -156,14 +162,18 @@ ais_results_in <- data_dir(paste0("SSD_", snapshot_years, ".xlsx")) |>
   mutate(date = as_date(datetime), year = year(date), .after = datetime) |>
   select(-datetime) |>
   filter(year %in% snapshot_years) |>
-  drop_na(parameter_code, parameter_name) |>
+  drop_na(parameter_code) |>
+  # drop_na(parameter_code, parameter_name) |>
   mutate(across(
     c(fsn, parameter_code, station_id, wbic, latitude, longitude),
     as.numeric
   )) |>
   left_join(wbic_names) |>
   relocate(waterbody_name, .after = wbic) |>
-  arrange(fsn, parameter_code)
+  arrange(fsn, parameter_code) |>
+  mutate(across(c(fsn, parameter_code, year, station_id, wbic), as.integer))
+
+skimr::skim(ais_results_in)
 
 # ais_results_in |>
 #   distinct(station_type) |>
@@ -269,6 +279,18 @@ if (nrow(missing_wbic) > 0) {
 }
 
 ais_results_in <- join_and_update(ais_results_in, corrected_wbic, "station_id")
+
+
+## Fill missing parameter names ----
+
+dnr_parameters <- ais_results_in |>
+  distinct(parameter_code, parameter_name)
+
+ais_results_in <- join_and_update(
+  ais_results_in,
+  dnr_parameters,
+  "parameter_code"
+)
 
 
 ## Fix and clean AIS results ----
@@ -454,15 +476,22 @@ watershed_ais_summary <- {
 new_ais_by_site <- ais_finds |>
   distinct(station_id, year, result) |>
   mutate(first_report = min(year), .by = c(station_id, result)) |>
-  mutate(id_type = if_else(year == first_report, "new", "existing")) |>
+  mutate(
+    id_type = if_else(year == first_report, "New", "Existing") |>
+      factor(c("New", "Existing"))
+  ) |>
   summarize(sites = n_distinct(station_id), .by = c(result, year, id_type)) |>
-  mutate(total_annual_sites = sum(sites), .by = c(result, year))
+  mutate(total_annual_sites = sum(sites), .by = c(result, year)) |>
+  arrange(desc(year), id_type, result)
 
 new_ais_by_waterbody <- ais_finds |>
   drop_na(wbic) |>
   distinct(wbic, waterbody_name, waterbody_type, station_id, year, result) |>
   mutate(first_report = min(year), .by = c(wbic, result)) |>
-  mutate(id_type = if_else(year == first_report, "new", "existing")) |>
+  mutate(
+    id_type = if_else(year == first_report, "New", "Existing") |>
+      factor(c("New", "Existing"))
+  ) |>
   summarize(
     waterbodies = n_distinct(wbic),
     waterbody_codes = to_summary_list(wbic),
@@ -480,10 +509,11 @@ new_ais_by_waterbody_dnr_long <- ais_finds |>
   rowwise() |>
   mutate(
     id_type = if_else(
-      grepl(result, known_species, fixed = T),
-      "existing",
-      "new"
-    ),
+      grepl(result, known_species, fixed = TRUE),
+      "Existing",
+      "New"
+    ) |>
+      factor(c("New", "Existing")),
     .after = result
   ) |>
   ungroup()
@@ -503,7 +533,10 @@ new_ais_by_waterbody_dnr <- new_ais_by_waterbody_dnr_long |>
 new_ais_by_watershed <- ais_finds |>
   distinct(dnr_watershed_code, dnr_watershed_name, year, result) |>
   mutate(first_report = min(year), .by = c(dnr_watershed_code, result)) |>
-  mutate(id_type = if_else(year == first_report, "new", "existing")) |>
+  mutate(
+    id_type = if_else(year == first_report, "New", "Existing") |>
+      factor(c("New", "Existing"))
+  ) |>
   summarize(
     watersheds = n_distinct(dnr_watershed_code),
     watershed_codes = to_summary_list(dnr_watershed_code, count = F),
@@ -515,7 +548,10 @@ new_ais_by_watershed <- ais_finds |>
 new_ais_by_county <- ais_finds |>
   distinct(county, station_id, year, result) |>
   mutate(first_report = min(year), .by = c(county, result)) |>
-  mutate(id_type = if_else(year == first_report, "new", "existing")) |>
+  mutate(
+    id_type = if_else(year == first_report, "New", "Existing") |>
+      factor(c("New", "Existing"))
+  ) |>
   summarize(
     counties = n_distinct(county),
     county_names = paste(sort(unique(county)), collapse = ", "),
