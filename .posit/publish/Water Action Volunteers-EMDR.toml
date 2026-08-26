@@ -1,10 +1,10 @@
 "$schema" = "https://cdn.posit.co/publisher/schemas/posit-publishing-schema-v3.json"
 type = "html"
-entrypoint = "_site/index.html"
+entrypoint = "site/index.html"
 title = "WAV Monitoring Summaries"
 source = "index.qmd"
 files = [
-    "/_site",
+    "/site",
     "/.posit/publish/Water Action Volunteers-EMDR.toml",
     "/.posit/publish/deployments/deployment-7EFK.toml",
 ]

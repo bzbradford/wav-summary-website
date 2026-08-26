@@ -5,7 +5,7 @@
 
 **/rsconnect/
 **/.quarto/
-**/_site/
+**/site/
 **/_freeze/
 
 /.quarto/
