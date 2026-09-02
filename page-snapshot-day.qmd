@@ -10,9 +10,7 @@ format:
 
 library(tidyverse)
 library(sf)
-library(leaflet)
-library(leaflet.extras)
-library(janitor)
+library(mapgl)
 library(gt)
 library(DT)
 
@@ -33,10 +31,21 @@ Snapshot Day is a volunteer AIS (Aquatic Invasive Species) monitoring program. V
 
 *This map shows all locations that were monitored at least once for AIS on a Snapshot Day. Individual fieldwork events are shown as blue markers when no AIS was found, or orange markers when at least one AIS species was reported present. Marker colors are darker for the most recent monitoring events. Click on a marker to get more information about an AIS fieldwork event.*
 
-```{r fig.height=9}
+
+```{r}
+
+# 1. Clean HTML columns (mapgl reads raw HTML strings directly from columns)
 ais_pts_labelled <- ais_pts |>
   mutate(
-    label = paste(
+    # Set up fill/stroke colors directly or via helper columns for clean mapgl mapping
+    pt_fill = case_when(
+      n_species > 0 & year == max(year) ~ "darkorange",
+      n_species > 0 ~ "orange",
+      year == max(year) ~ "cornflowerblue",
+      TRUE ~ "skyblue"
+    ),
+    pt_stroke = if_else(year == max(year), "black", "gray"),
+    tooltip_html = paste(
       sprintf("<b>Station %s: %s</b>", station_id, station_name),
       paste(
         paste("Fieldwork date:", date),
@@ -46,14 +55,13 @@ ais_pts_labelled <- ais_pts |>
       paste("Species found:", str_wrap_html(species_found)),
       paste("Fieldwork comment:", str_wrap_html(fieldwork_comment)),
       sep = "<br>"
-    ) |>
-      lapply(shiny::HTML)
+    )
   )
 
 county_shapes <- wi_counties |>
   left_join(county_ais_summary) %>%
-  mutate(popup = create_popups(.)) |>
   mutate(
+    popup = create_popups(.),
     monitored = if_else(
       is.na(species),
       "Not monitored",
@@ -63,14 +71,13 @@ county_shapes <- wi_counties |>
         str_wrap_html(species_found)
       )
     ),
-    label = sprintf("<b>%s County</b> - %s", county, monitored) |>
-      lapply(shiny::HTML)
+    tooltip_html = sprintf("<b>%s County</b> - %s", county, monitored)
   )
 
 watershed_shapes <- watersheds |>
   left_join(watershed_ais_summary) %>%
-  mutate(popup = create_popups(.)) |>
   mutate(
+    popup = create_popups(.),
     monitored = if_else(
       is.na(species),
       "Not monitored",
@@ -80,65 +87,80 @@ watershed_shapes <- watersheds |>
         str_wrap_html(species_found)
       )
     ),
-    label = sprintf(
+    tooltip_html = sprintf(
       "<b>%s Watershed (%s)</b> - %s",
       dnr_watershed_name,
       dnr_watershed_code,
       monitored
-    ) |>
-      lapply(shiny::HTML)
+    )
   )
 
-leaflet() |>
-  addProviderTiles(providers$CartoDB.Positron) |>
-  addPolygons(
-    data = county_shapes,
-    label = ~label,
-    popup = ~popup,
-    color = "grey",
-    weight = .5,
-    opacity = .5,
-    fillColor = ~ colorNumeric("viridis", species)(species),
-    fillOpacity = .1,
-    group = "Counties"
+# 2. Build the MapLibre map
+carto_key <- Sys.getenv("CARTO_KEY")
+
+maplibre(
+  # bounds = st_bbox(ais_pts),
+  projection = "mercator",
+  style = paste0(
+    "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json?api_key=",
+    carto_key
+  )
+) |>
+  fit_bounds(ais_pts, padding = 20) |>
+  # County Polygons
+  add_fill_layer(
+    id = "Counties",
+    source = county_shapes,
+    fill_color = interpolate(
+      column = "species",
+      values = c(
+        min(county_shapes$species, na.rm = TRUE),
+        max(county_shapes$species, na.rm = TRUE)
+      ),
+      stops = c("#440154", "#fde725"), # Viridis palette endpoints
+      na_color = "transparent"
+    ),
+    fill_opacity = 0.1,
+    fill_outline_color = "grey",
+    tooltip = "tooltip_html",
+    popup = "popup"
   ) |>
-  addPolygons(
-    data = watershed_shapes,
-    label = ~label,
-    popup = ~popup,
-    color = "grey",
-    weight = .5,
-    opacity = .5,
-    fillColor = ~ colorNumeric("viridis", species)(species),
-    fillOpacity = .1,
-    group = "Watersheds"
+  # Watershed Polygons
+  add_fill_layer(
+    id = "Watersheds",
+    source = watershed_shapes,
+    fill_color = interpolate(
+      column = "species",
+      values = c(
+        min(watershed_shapes$species, na.rm = TRUE),
+        max(watershed_shapes$species, na.rm = TRUE)
+      ),
+      stops = c("#440154", "#fde725"),
+      na_color = "transparent"
+    ),
+    fill_opacity = 0.1,
+    fill_outline_color = "grey",
+    tooltip = "tooltip_html",
+    popup = "popup"
   ) |>
-  addCircleMarkers(
-    data = ais_pts_labelled |>
-      filter(n_species == 0),
-    label = ~label,
-    popup = ~popup,
-    radius = 4,
-    color = ~ if_else(year == max(year), "black", "gray"),
-    weight = 1,
-    opacity = 1,
-    fillColor = ~ if_else(year == max(year), "cornflowerblue", "skyblue"),
-    fillOpacity = 1
+  # AIS Point Markers
+  add_circle_layer(
+    id = "monitoring_stations",
+    source = ais_pts_labelled,
+    circle_radius = 4,
+    circle_color = get_column("pt_fill"),
+    circle_stroke_color = get_column("pt_stroke"),
+    circle_stroke_width = 1,
+    circle_opacity = 1,
+    tooltip = "tooltip_html",
+    popup = "popup"
   ) |>
-  addCircleMarkers(
-    data = ais_pts_labelled |>
-      filter(n_species > 0),
-    label = ~label,
-    popup = ~popup,
-    radius = 4,
-    color = ~ if_else(year == max(year), "black", "gray"),
-    weight = 1,
-    opacity = 1,
-    fillColor = ~ if_else(year == max(year), "darkorange", "orange"),
-    fillOpacity = 1
+  # Layer Toggle & Controls
+  add_layers_control(
+    layers = c("Counties", "Watersheds"),
+    position = "top-right"
   ) |>
-  addLayersControl(overlayGroups = c("Counties", "Watersheds")) |>
-  addFullscreenControl(pseudoFullscreen = TRUE)
+  add_fullscreen_control(position = "top-left")
 ```
 
 ## Static map
@@ -157,7 +179,7 @@ ggplot() +
       left_join(county_counts) |>
       drop_na(),
     aes(fill = n),
-    alpha = .5
+    alpha = 0.5
   ) +
   geom_sf(data = wi, fill = NA, lwd = .75) +
   geom_sf_text(
@@ -165,7 +187,7 @@ ggplot() +
     aes(label = county),
     angle = 15,
     size = 2,
-    alpha = .5
+    alpha = 0.5
   ) +
   geom_sf(
     data = filter(ais_pts, n_species == 0),
@@ -839,7 +861,7 @@ new_ais_by_site |>
 
 ### New detections by waterbody, using Snapshot Day dataset
 
-*Unique waterbodies are identified by their WBIC. Note that some sampling points were missing WBICs; these are enumerated at the end of this report. For the purposes of counting waterbodies, sites missing WBICs have all been assumed to be from different WBICs from any other station in the dataset.*
+*Unique waterbodies are identified by their WBIC. Note that some sampling points were missing WBICs; these are enumerated at the end of this report. For the purposes of counting waterbodies, any site missing a WBIC is assumed to be on a unique waterbody different from any other known or unknown waterbody in the dataset.*
 
 ::: {.callout-tip collapse="true" title="Download data"}
 ```{r}
@@ -986,7 +1008,7 @@ ais_finds |>
 
 ::: {.callout-note collapse="true" title="Show/hide table"}
 ```{r}
-missing_wbic |> to_dt()
+stns_without_wbic |> to_dt()
 ```
 :::
 

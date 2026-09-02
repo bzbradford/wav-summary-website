@@ -1,7 +1,6 @@
 library(tidyverse)
 library(janitor)
 library(sf)
-library(leaflet)
 library(readxl)
 
 rm(list = ls())
@@ -244,7 +243,7 @@ wi_counties_hab_counts <- wi_counties |>
   left_join(county_totals, join_by(county_name)) |>
   mutate(across(county_name, ~ paste(.x, "County")))
 
-# for leaflet
+# popup/tooltip HTML for the mapgl map
 create_popup <- function(data, title) {
   cols <- names(data)
   lapply(1:nrow(data), function(r) {
@@ -286,20 +285,6 @@ fw_points <- fieldwork_info |>
 stn_points <- fw_points |>
   distinct(station_id, station_name, geometry) |>
   mutate(label = paste(station_id, station_name))
-
-leaflet_counties <- wi_counties |>
-  left_join(county_totals) |>
-  mutate(
-    label = paste(
-      sprintf("<b>%s County</b>", county_name),
-      sprintf("<i>%s</i>", dnr_region),
-      sprintf("%s stations", coalesce(n_stations, 0)),
-      sprintf("%s habitat assessments", coalesce(n_events, 0)),
-      sep = "<br>"
-    )
-  )
-
-leaflet_pal <- colorBin("YlOrRd", domain = county_totals$n_events, bins = 5)
 
 
 # Save image ----

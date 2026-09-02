@@ -1,8 +1,7 @@
 library(tidyverse)
 library(readxl)
 library(sf)
-library(leaflet)
-library(leaflet.extras)
+library(mapgl)
 library(janitor)
 library(gt)
 library(DT)
@@ -14,7 +13,7 @@ data_dir <- function(f) file.path("data_snapshot_day", f)
 create_popups <- function(df) {
   df <- df |> st_set_geometry(NULL)
   cols <- names(df)
-  col_labels <- make_clean_names(cols, case = "sentence")
+  col_labels <- janitor::make_clean_names(cols, case = "sentence")
   lapply(1:nrow(df), function(r) {
     row <- df[r, ]
     lapply(1:length(cols), function(c) {
@@ -49,7 +48,7 @@ n_distinct2 <- function(...) {
 
 to_dt <- function(.data) {
   .data |>
-    clean_names(case = "title") |>
+    janitor::clean_names(case = "title") |>
     datatable(
       .data,
       extensions = "Buttons",
@@ -63,7 +62,7 @@ to_dt <- function(.data) {
 
 to_gt <- function(.data) {
   .data |>
-    clean_names(case = "title") |>
+    janitor::clean_names(case = "title") |>
     gt() |>
     tab_options(table.width = "100%")
 }
@@ -127,7 +126,10 @@ wbic_names <- wbic_ais |> distinct(wbic, waterbody_name)
 
 # Waterbody types
 
-waterbody_types <- read_csv(data_dir("station_types.csv"))
+waterbody_types <- read_csv(
+  data_dir("station_types.csv"),
+  show_col_types = FALSE
+)
 
 # Load data ----
 
@@ -175,17 +177,17 @@ ais_results_in <- lapply(snapshot_years, function(yr) {
 
 skimr::skim(ais_results_in)
 
+# station type counts
+ais_results_in |>
+  summarize(n = n_distinct(fsn), .by = station_type) |>
+  arrange(desc(n))
+
 # ais_results_in |>
 #   distinct(station_type) |>
 #   arrange(station_type) |>
 #   write_csv("station_types.csv")
 
 ## Check missing/invalid lat lng ----
-
-find_invalid_ll <- function(.data) {
-  .data |>
-    filter(is.na(latitude) | is.na(longitude) | latitude == 0 | longitude == 0)
-}
 
 # merges corrections into main dataset
 join_and_update <- function(.x, .y, join_col) {
@@ -198,8 +200,22 @@ join_and_update <- function(.x, .y, join_col) {
     select(-ends_with("_new"))
 }
 
-stns_invalid_ll <- ais_results_in |>
-  find_invalid_ll() |>
+# load station lat/lng corrections
+stns_corrected_ll <- read_csv(
+  data_dir("stns-corrected-ll.csv"),
+  show_col_types = FALSE
+)
+
+# merge corrections in
+ais_results_corrected <- join_and_update(
+  ais_results_in,
+  stns_corrected_ll,
+  "station_id"
+)
+
+# check for invalid lat/lng after corrections
+stns_invalid_ll <- ais_results_corrected |>
+  filter(is.na(latitude) | is.na(longitude) | latitude == 0 | longitude == 0) |>
   summarize(
     fieldwork_count = n_distinct2(fsn),
     years_monitored = to_summary_list(year),
@@ -216,28 +232,29 @@ stns_invalid_ll <- ais_results_in |>
 
 stns_invalid_ll |> write_csv(data_dir("stns-invalid-ll.csv"))
 
-stns_corrected_ll <- read_csv(data_dir("stns-corrected-ll.csv")) |>
-  select(-c(fieldwork_count, years_monitored))
-
-ais_results_in <- join_and_update(
-  ais_results_in,
-  stns_corrected_ll,
-  "station_id"
-)
-
-local({
-  df <- find_invalid_ll(ais_results_in)
-  if (nrow(df) > 0) {
-    warning(nrow(df), " stations with invalid latitude/longitude!")
-    print(stns_invalid_ll)
-  }
-})
+if (nrow(stns_invalid_ll) > 0) {
+  message(nrow(stns_invalid_ll), " stations with invalid latitude/longitude!")
+  print(stns_invalid_ll)
+}
 
 
 ## Fill missing WBICs ----
 
+# fill in missing WBICs per Emily's list
+corrected_wbic <- read_csv(
+  data_dir("stns-corrected-wbics.csv"),
+  show_col_types = FALSE
+) |>
+  select(-wbic_note)
+
+ais_results_corrected <- join_and_update(
+  ais_results_corrected,
+  corrected_wbic,
+  "station_id"
+)
+
 # sites with valid latitude/longitude but missing WBICs
-stns_without_wbic <- ais_results_in |>
+stns_without_wbic <- ais_results_corrected |>
   filter(is.na(wbic)) |>
   summarize(
     fieldwork_count = n_distinct2(fsn),
@@ -254,40 +271,21 @@ stns_without_wbic <- ais_results_in |>
   ) |>
   arrange(latitude, longitude)
 
-# fill in missing WBICs per Emily's list
-corrected_wbic <- data_dir(paste0(
-  "stns-corrected-wbics-",
-  c(2024, 2025),
-  ".csv"
-)) |>
-  lapply(read_csv) |>
-  bind_rows() |>
-  arrange(wbic) |>
-  distinct(station_id, .keep_all = T)
+stns_without_wbic |> write_csv(data_dir("stns-missing-wbic.csv"))
 
-# still missing?
-missing_wbic <- corrected_wbic |>
-  bind_rows(stns_without_wbic) |>
-  arrange(wbic) |>
-  distinct(station_id, .keep_all = TRUE) |>
-  filter(is.na(wbic))
-
-if (nrow(missing_wbic) > 0) {
-  warning(nrow(missing_wbic), " stations missing WBIC!")
-  print(missing_wbic)
-  missing_wbic |> write_csv(data_dir("stns-missing-wbic.csv"))
+if (nrow(stns_without_wbic) > 0) {
+  warning(nrow(stns_without_wbic), " stations missing WBIC!")
+  print(stns_without_wbic)
 }
-
-ais_results_in <- join_and_update(ais_results_in, corrected_wbic, "station_id")
 
 
 ## Fill missing parameter names ----
 
-dnr_parameters <- ais_results_in |>
+dnr_parameters <- ais_results_corrected |>
   distinct(parameter_code, parameter_name)
 
-ais_results_in <- join_and_update(
-  ais_results_in,
+ais_results_corrected <- join_and_update(
+  ais_results_corrected,
   dnr_parameters,
   "parameter_code"
 )
@@ -296,11 +294,11 @@ ais_results_in <- join_and_update(
 ## Fix and clean AIS results ----
 
 ais_results <- bind_rows(
-  ais_results_in |> filter(!is.na(wbic)),
-  ais_results_in |>
+  ais_results_corrected |> filter(!is.na(wbic)),
+  ais_results_corrected |>
     filter(is.na(wbic)) |>
     select(-c(wbic, waterbody_name)) |>
-    left_join(missing_wbic)
+    left_join(stns_without_wbic)
 ) |>
   mutate(
     wbic = coalesce(wbic, station_id),

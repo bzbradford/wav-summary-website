@@ -18,7 +18,7 @@ format:
 
 library(tidyverse)
 library(sf)
-library(leaflet)
+library(mapgl)
 library(janitor)
 library(gt)
 
@@ -43,7 +43,7 @@ The Project RED AIS monitoring data includes `r n_distinct(ais_results$fsn)` fie
 
 ## Interactive map
 
-*This map shows all point stations and river segments that were monitored at least once for AIS between 2008 and present. River segments are shown as red lines and point stations are shown as orange circles. Individual fieldwork events are shown as blue pins or numbered groups when zoomed out. Click on a blue pin to get more information about an AIS fieldwork event.*
+*This map shows all point stations and river segments that were monitored at least once for AIS between 2008 and present. River segments are shown as red lines and point stations are shown as orange circles. Individual fieldwork events are shown as blue circles, or as numbered clusters when zoomed out. Click on a blue circle to get more information about an AIS fieldwork event.*
 
 ```{r}
 #| fig-height: 9
@@ -61,42 +61,102 @@ counties_with_results <- wi_counties %>%
         .by = county_name
       )
   }) %>%
-  mutate(popup = create_popups(.))
-
-leaflet() %>%
-  addProviderTiles(providers$CartoDB.Positron) %>%
-  addPolygons(
-    data = counties_with_results,
-    label = ~ if_else(
+  mutate(
+    popup = create_popups(.),
+    tooltip_html = if_else(
       !is.na(species),
-      paste(county_name, "County - ", species, "species found"),
-      paste(county_name, "County - Not monitored")
-    ),
-    popup = ~popup,
-    color = "grey", weight = .5, opacity = .5,
-    fillColor = ~ colorNumeric("viridis", species)(species), fillOpacity = .1
-  ) %>%
-  addPolylines(
-    data = stn_lines,
-    label = ~ paste(station_id, station_name),
-    color = "darkred", opacity = 1
-  ) %>%
-  addCircleMarkers(
-    data = stn_pts,
-    label = ~ paste(station_id, station_name),
-    radius = 3,
-    color = "black", weight = 1, opacity = 1,
-    fillColor = "orange", fillOpacity = 1
-  ) %>%
-  addMarkers(
-    data = all_pts,
-    label = ~ paste0(
-      "<b>Station ", station_id, ": ", station_name, "</b><br>",
-      "Fieldwork date: ", date, ", Waterbody monitored: ", `Waterbody Name`
-    ) %>% lapply(shiny::HTML),
-    popup = ~popup,
-    clusterOptions = markerClusterOptions()
+      sprintf("<b>%s County</b> - %s species found", county_name, species),
+      sprintf("<b>%s County</b> - Not monitored", county_name)
+    )
   )
+
+stn_lines_labelled <- stn_lines |>
+  mutate(tooltip_html = paste(station_id, station_name))
+
+stn_pts_labelled <- stn_pts |>
+  mutate(tooltip_html = paste(station_id, station_name))
+
+fw_pts_labelled <- all_pts |>
+  mutate(
+    tooltip_html = paste0(
+      "<b>Station ", station_id, ": ", station_name, "</b><br>",
+      "Fieldwork date: ", date,
+      ", Waterbody monitored: ", `Waterbody Name`
+    )
+  )
+
+carto_key <- Sys.getenv("CARTO_KEY")
+
+maplibre(
+  projection = "mercator",
+  style = paste0(
+    "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json?api_key=",
+    carto_key
+  )
+) |>
+  fit_bounds(all_pts, padding = 20) |>
+  # County Polygons
+  add_fill_layer(
+    id = "Counties",
+    source = counties_with_results,
+    fill_color = interpolate(
+      column = "species",
+      values = c(
+        min(counties_with_results$species, na.rm = TRUE),
+        max(counties_with_results$species, na.rm = TRUE)
+      ),
+      stops = c("#440154", "#fde725"), # Viridis palette endpoints
+      na_color = "transparent"
+    ),
+    fill_opacity = 0.1,
+    fill_outline_color = "grey",
+    tooltip = "tooltip_html",
+    popup = "popup"
+  ) |>
+  # River Segments
+  add_line_layer(
+    id = "River segments",
+    source = stn_lines_labelled,
+    line_color = "darkred",
+    line_width = 2,
+    line_opacity = 1,
+    tooltip = "tooltip_html"
+  ) |>
+  # Point Stations
+  add_circle_layer(
+    id = "Point stations",
+    source = stn_pts_labelled,
+    circle_radius = 3,
+    circle_color = "orange",
+    circle_stroke_color = "black",
+    circle_stroke_width = 1,
+    circle_opacity = 1,
+    tooltip = "tooltip_html"
+  ) |>
+  # Fieldwork Events (clustered)
+  add_circle_layer(
+    id = "Fieldwork events",
+    source = fw_pts_labelled,
+    circle_radius = 5,
+    circle_color = "cornflowerblue",
+    circle_stroke_color = "black",
+    circle_stroke_width = 1,
+    circle_opacity = 1,
+    tooltip = "tooltip_html",
+    popup = "popup",
+    cluster_options = cluster_options()
+  ) |>
+  # Layer Toggle & Controls
+  add_layers_control(
+    layers = c(
+      "Counties",
+      "River segments",
+      "Point stations",
+      "Fieldwork events"
+    ),
+    position = "top-right"
+  ) |>
+  add_fullscreen_control(position = "top-left")
 ```
 
 ## Static map

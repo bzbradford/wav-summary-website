@@ -1,6 +1,6 @@
 library(tidyverse)
 library(sf)
-library(leaflet)
+library(mapgl)
 library(janitor)
 library(gt)
 library(readxl)
@@ -188,7 +188,7 @@ stn_pts_annual <- stn_lines |>
 #   geom_sf(data = stn_pts) +
 #   geom_sf(data = all_pts, shape = 4)
 
-# Leaflet prep ------------------------------------------------------------
+# Map prep ----------------------------------------------------------------
 
 create_popups <- function(df) {
   title <- "<b><u>Fieldwork Detail</u></b><br>"

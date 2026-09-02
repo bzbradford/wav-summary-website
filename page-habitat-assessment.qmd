@@ -18,7 +18,7 @@ format:
 library(tidyverse)
 library(janitor)
 library(sf)
-library(leaflet)
+library(mapgl)
 
 knitr::opts_chunk$set(dev = "png", dev.args = list(type = "cairo-png"))
 
@@ -474,34 +474,77 @@ ggplot() +
 ```{r}
 #| fig-height: 10
 
-leaflet() %>%
-  addProviderTiles(providers$CartoDB.Positron) %>%
-  addPolygons(
-    data = leaflet_counties,
-    weight = 1,
-    label = ~ lapply(label, shiny::HTML),
-    color = "grey",
-    fillColor = ~ leaflet_pal(n_events)
-  ) %>%
-  addCircleMarkers(
-    data = stn_points,
-    label = ~ lapply(label, shiny::HTML),
-    radius = 4,
-    weight = 1,
-    color = "black",
-    fillColor = "green",
-    fillOpacity = .5
-  ) %>%
-  addMarkers(
-    data = fw_points,
-    label = ~ lapply(label, shiny::HTML),
-    popup = ~popup,
-    clusterOptions = markerClusterOptions()
+map_counties <- wi_counties |>
+  left_join(county_totals) |>
+  mutate(
+    across(c(n_stations, n_events), ~ coalesce(.x, 0L)),
+    tooltip_html = paste(
+      sprintf("<b>%s County</b>", county_name),
+      sprintf("<i>%s</i>", dnr_region),
+      sprintf("%s stations", n_stations),
+      sprintf("%s habitat assessments", n_events),
+      sep = "<br>"
+    )
   )
+
+carto_key <- Sys.getenv("CARTO_KEY")
+
+maplibre(
+  projection = "mercator",
+  style = paste0(
+    "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json?api_key=",
+    carto_key
+  )
+) |>
+  fit_bounds(map_counties, padding = 20) |>
+  # County Polygons
+  add_fill_layer(
+    id = "Counties",
+    source = map_counties,
+    fill_color = interpolate(
+      column = "n_events",
+      values = c(0, max(map_counties$n_events, na.rm = TRUE)),
+      stops = c("#ffffb2", "#bd0026"), # YlOrRd palette endpoints
+      na_color = "transparent"
+    ),
+    fill_opacity = 0.5,
+    fill_outline_color = "grey",
+    tooltip = "tooltip_html"
+  ) |>
+  # DNR Station Locations
+  add_circle_layer(
+    id = "Stations",
+    source = stn_points,
+    circle_radius = 4,
+    circle_color = "green",
+    circle_opacity = 0.5,
+    circle_stroke_color = "black",
+    circle_stroke_width = 1,
+    tooltip = "label"
+  ) |>
+  # Habitat Assessment Events (clustered)
+  add_circle_layer(
+    id = "Assessments",
+    source = fw_points,
+    circle_radius = 5,
+    circle_color = "cornflowerblue",
+    circle_stroke_color = "black",
+    circle_stroke_width = 1,
+    circle_opacity = 1,
+    tooltip = "label",
+    popup = "popup",
+    cluster_options = cluster_options()
+  ) |>
+  # Layer Toggle & Controls
+  add_layers_control(
+    layers = c("Counties", "Stations", "Assessments"),
+    position = "top-right"
+  ) |>
+  add_fullscreen_control(position = "top-left")
 ```
 :::
 
-*Click on a cluster to zoom in, click on any marker to view a record of a habitat assessment performed at that location. Green circles show DNR station locations, markers show individual fieldwork events. Counties are colored by the total number of habitat assessments performed in that county.*
+*Click on a cluster to zoom in, click on any blue circle to view a record of a habitat assessment performed at that location. Green circles show DNR station locations, blue circles show individual fieldwork events. Counties are colored by the total number of habitat assessments performed in that county.*
 
 ::: {style="margin-top: 4em; border-top: 1px solid grey; color: grey; font-size: small"}
 *Habitat assessment summary developed by Ben Bradford (UW-Madison Entomology) and Katy Bradford (WAV Program Manager, UW-Extension NRI). Data courtesy Wisconsin DNR with special thanks to Justin Chenevert.*

@@ -17,7 +17,6 @@ format:
 
 library(tidyverse)
 library(sf)
-library(leaflet)
 
 knitr::opts_chunk$set(dev = "png", dev.args = list(type = "cairo-png"))
 

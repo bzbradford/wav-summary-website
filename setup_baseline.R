@@ -2,7 +2,7 @@
 
 library(tidyverse)
 library(sf)
-library(leaflet)
+library(mapgl)
 
 rm(list = ls())
 
@@ -57,18 +57,18 @@ great_lakes <- huc12 |>
   select(geometry) |>
   mutate(Nearshore = T)
 
-# leaflet() |> addTiles() |> addPolygons(data = great_lakes)
+# maplibre() |> add_fill_layer(id = "gl", source = great_lakes)
 
 huc8_nearshore <- huc8 |>
   filter(!(Huc8Name %in% c("Lake Michigan", "Lake Superior"))) |>
   st_join(great_lakes) |>
   filter(Nearshore)
 
-# leaflet() |>
-#   addTiles() |>
-#   addPolygons(
-#     data = filter(huc10_nearshore, Nearshore),
-#     label = ~Huc10Name)
+# maplibre() |>
+#   add_fill_layer(
+#     id = "nearshore",
+#     source = filter(huc10_nearshore, Nearshore),
+#     tooltip = "Huc10Name")
 
 huc10_nearshore <- huc10 |>
   filter(
@@ -82,11 +82,11 @@ huc10_nearshore <- huc10 |>
   st_join(great_lakes) |>
   filter(Nearshore)
 
-# leaflet() |>
-#   addTiles() |>
-#   addPolygons(
-#     data = filter(huc10_nearshore, Nearshore),
-#     label = ~Huc10Name)
+# maplibre() |>
+#   add_fill_layer(
+#     id = "nearshore",
+#     source = filter(huc10_nearshore, Nearshore),
+#     tooltip = "Huc10Name")
 
 huc12_nearshore <- huc12 |>
   filter(
@@ -95,11 +95,11 @@ huc12_nearshore <- huc12 |>
   st_join(great_lakes) |>
   filter(Nearshore)
 
-# leaflet() |>
-#   addTiles() |>
-#   addPolygons(
-#     data = filter(huc12_nearshore, Nearshore),
-#     label = ~Huc12Name)
+# maplibre() |>
+#   add_fill_layer(
+#     id = "nearshore",
+#     source = filter(huc12_nearshore, Nearshore),
+#     tooltip = "Huc12Name")
 
 # Process data ----
 
