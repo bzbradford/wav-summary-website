@@ -13,7 +13,7 @@ data_dir <- function(f) file.path("data_snapshot_day", f)
 create_popups <- function(df) {
   df <- df |> st_set_geometry(NULL)
   cols <- names(df)
-  col_labels <- janitor::make_clean_names(cols, case = "sentence")
+  col_labels <- make_clean_names(cols, case = "sentence")
   lapply(1:nrow(df), function(r) {
     row <- df[r, ]
     lapply(1:length(cols), function(c) {
@@ -48,7 +48,7 @@ n_distinct2 <- function(...) {
 
 to_dt <- function(.data) {
   .data |>
-    janitor::clean_names(case = "title") |>
+    clean_names(case = "title") |>
     datatable(
       .data,
       extensions = "Buttons",
@@ -62,7 +62,7 @@ to_dt <- function(.data) {
 
 to_gt <- function(.data) {
   .data |>
-    janitor::clean_names(case = "title") |>
+    clean_names(case = "title") |>
     gt() |>
     tab_options(table.width = "100%")
 }
@@ -133,47 +133,80 @@ waterbody_types <- read_csv(
 
 # Load data ----
 
-snapshot_years <- 2014:2026 # UPDATE THIS!
-ais_results_in <- lapply(snapshot_years, function(yr) {
-  file <- data_dir(paste0("SSD_", yr, ".xlsx"))
-  read_excel(file, na = c("", "NA"), col_types = "text")
-}) |>
-  bind_rows() |>
-  mutate(across(everything(), parse_guess)) |>
+# snapshot_years <- 2014:2026 # UPDATE THIS!
+# ais_results_in <- lapply(snapshot_years, function(yr) {
+#   file <- data_dir(paste0("SSD_", yr, ".xlsx"))
+#   read_excel(file, na = c("", "NA"), col_types = "text")
+# }) |>
+#   bind_rows() |>
+#   mutate(across(everything(), parse_guess)) |>
+#   clean_names() |>
+#   mutate(across(
+#     contains("_date"),
+#     ~ parse_date_time(.x, c("mdy", "mdy IMs p"), tz = "America/Chicago")
+#   )) |>
+#   select(
+#     fsn = fieldwork_seq_no,
+#     parameter_code = dnr_parameter_code,
+#     parameter_name = dnr_parameter_description,
+#     result = result_value_no,
+#     datetime = start_date_time,
+#     station_id,
+#     station_name = primary_station_name,
+#     station_type = station_type_code,
+#     latitude = station_latitude,
+#     longitude = station_longitude,
+#     wbic,
+#     projects,
+#     group_desc,
+#     fieldwork_comment
+#   ) |>
+#   mutate(date = as_date(datetime), year = year(date), .after = datetime) |>
+#   select(-datetime) |>
+#   filter(year %in% snapshot_years) |>
+#   drop_na(parameter_code) |>
+#   # drop_na(parameter_code, parameter_name) |>
+#   mutate(across(
+#     c(fsn, parameter_code, station_id, wbic, latitude, longitude),
+#     as.numeric
+#   )) |>
+#   left_join(wbic_names) |>
+#   relocate(waterbody_name, .after = wbic) |>
+#   arrange(fsn, parameter_code) |>
+#   mutate(across(c(fsn, parameter_code, year, station_id, wbic), as.integer))
+
+ais_results_in <- read_xlsx(
+  "data_swims/wav_snapshot_day.xlsx",
+  guess_max = 1e6
+) |>
   clean_names() |>
-  mutate(across(
-    contains("_date"),
-    ~ parse_date_time(.x, c("mdy", "mdy IMs p"), tz = "America/Chicago")
-  )) |>
   select(
     fsn = fieldwork_seq_no,
+    datetime = start_date_time,
     parameter_code = dnr_parameter_code,
     parameter_name = dnr_parameter_description,
     result = result_value_no,
-    datetime = start_date_time,
     station_id,
     station_name = primary_station_name,
     station_type = station_type_code,
-    latitude = station_latitude,
-    longitude = station_longitude,
+    latitude,
+    longitude,
     wbic,
-    projects,
+    waterbody_name = official_waterbody_name,
     group_desc,
     fieldwork_comment
   ) |>
   mutate(date = as_date(datetime), year = year(date), .after = datetime) |>
+  filter(year >= 2014) |>
   select(-datetime) |>
-  filter(year %in% snapshot_years) |>
   drop_na(parameter_code) |>
-  # drop_na(parameter_code, parameter_name) |>
-  mutate(across(
-    c(fsn, parameter_code, station_id, wbic, latitude, longitude),
-    as.numeric
-  )) |>
-  left_join(wbic_names) |>
-  relocate(waterbody_name, .after = wbic) |>
-  arrange(fsn, parameter_code) |>
-  mutate(across(c(fsn, parameter_code, year, station_id, wbic), as.integer))
+  mutate(
+    across(c(fsn, parameter_code, year, station_id, wbic), as.integer),
+    across(c(latitude, longitude), as.numeric)
+  ) |>
+  # left_join(wbic_names) |>
+  # relocate(waterbody_name, .after = wbic) |>
+  arrange(fsn, parameter_code)
 
 skimr::skim(ais_results_in)
 

@@ -9,6 +9,7 @@ format:
 #| include: false
 
 library(tidyverse)
+library(janitor)
 library(sf)
 library(mapgl)
 library(gt)
@@ -32,7 +33,7 @@ Snapshot Day is a volunteer AIS (Aquatic Invasive Species) monitoring program. V
 *This map shows all locations that were monitored at least once for AIS on a Snapshot Day. Individual fieldwork events are shown as blue markers when no AIS was found, or orange markers when at least one AIS species was reported present. Marker colors are darker for the most recent monitoring events. Click on a marker to get more information about an AIS fieldwork event.*
 
 
-```{r}
+```{r fig.height=7}
 
 # 1. Clean HTML columns (mapgl reads raw HTML strings directly from columns)
 ais_pts_labelled <- ais_pts |>
