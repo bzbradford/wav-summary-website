@@ -6,7 +6,7 @@ library(mapgl)
 
 rm(list = ls())
 
-MAX_YEAR <- 2025 # SET THIS
+MAX_YEAR <- 2026 # SET THIS
 
 source("parse_names.R")
 

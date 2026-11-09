@@ -31,14 +31,14 @@ plt_theme <- theme(
   panel.background = element_blank(),
   legend.position = "none",
   panel.grid = element_blank(),
-  panel.grid.major.y = element_line(color = "grey", linewidth = .1)
+  panel.grid.major.y = element_line(color = "grey", linewidth = 0.1)
 )
 ```
 
 Project RED (Riverine Early Detectors) is a volunteer AIS (Aquatic Invasive Species) monitoring program. Visit [Water Action Volunteers](https://wateractionvolunteers.org/){target="_blank"} for more information.
 
 ::: callout-note
-The Project RED AIS monitoring data includes `r n_distinct(ais_results$fsn)` fieldwork events at `r n_distinct(ais_results$station_id)` stations from `r min(ais_results$date)` to `r max(ais_results$date)`.
+The Project RED AIS monitoring data includes `r n_distinct(red_results$fsn)` fieldwork events at `r n_distinct(red_results$station_id)` stations from `r min(red_results$date)` to `r max(red_results$date)`.
 :::
 
 ## Interactive map
@@ -47,10 +47,10 @@ The Project RED AIS monitoring data includes `r n_distinct(ais_results$fsn)` fie
 
 ```{r}
 #| fig-height: 9
-counties_with_results <- wi_counties %>%
+counties_with_results <- wi_counties |>
   left_join({
-    ais_results %>%
-      filter(parameter_code == 20043) %>%
+    red_results |>
+      filter(parameter_code == 20043) |>
       summarize(
         years_monitored = paste(sort(unique(year)), collapse = ", "),
         species_found = paste(sort(unique(result)), collapse = ", "),
@@ -79,9 +79,15 @@ stn_pts_labelled <- stn_pts |>
 fw_pts_labelled <- all_pts |>
   mutate(
     tooltip_html = paste0(
-      "<b>Station ", station_id, ": ", station_name, "</b><br>",
-      "Fieldwork date: ", date,
-      ", Waterbody monitored: ", `Waterbody Name`
+      "<b>Station ",
+      station_id,
+      ": ",
+      station_name,
+      "</b><br>",
+      "Fieldwork date: ",
+      date,
+      ", Waterbody monitored: ",
+      `Waterbody Name`
     )
   )
 
@@ -164,18 +170,25 @@ maplibre(
 *Stations monitored for AIS at any time between 2008 and present are shown below.*
 
 ```{r fig.height=7}
-county_counts <- all_pts %>%
-  st_set_geometry(NULL) %>%
+county_counts <- all_pts |>
+  st_set_geometry(NULL) |>
   count(county_name)
 
 ggplot() +
   geom_sf(data = wi_counties) +
   geom_sf(
-    data = wi_counties %>% left_join(county_counts),
-    aes(fill = n), alpha = .5
+    data = wi_counties |> left_join(county_counts),
+    aes(fill = n),
+    alpha = .5
   ) +
   geom_sf(data = wi, fill = NA, lwd = .75) +
-  geom_sf_text(data = wi_counties, aes(label = county_name), angle = 15, size = 2, alpha = .5) +
+  geom_sf_text(
+    data = wi_counties,
+    aes(label = county_name),
+    angle = 15,
+    size = 2,
+    alpha = .5
+  ) +
   geom_sf(data = all_pts, shape = 24, fill = "orange", size = 3) +
   scale_fill_viridis_c(na.value = "grey90") +
   labs(fill = "Stations\nin county\n") +
@@ -188,12 +201,12 @@ ggplot() +
 ### AIS monitoring locations by year
 
 ```{r fig.height=7}
-county_counts <- wi_counties %>%
+county_counts <- wi_counties |>
   left_join({
-    stn_pts_annual %>%
-      st_set_geometry(NULL) %>%
+    stn_pts_annual |>
+      st_set_geometry(NULL) |>
       count(year, county_name)
-  }) %>%
+  }) |>
   drop_na(year)
 
 ggplot() +
@@ -209,7 +222,11 @@ ggplot() +
   theme(
     legend.position = "bottom",
     plot.title = element_text(hjust = .5, margin = margin(t = 4, b = 4)),
-    strip.text = element_text(face = "bold", size = 12, margin = margin(t = 8, b = 2))
+    strip.text = element_text(
+      face = "bold",
+      size = 12,
+      margin = margin(t = 8, b = 2)
+    )
   )
 ```
 
@@ -220,9 +237,9 @@ ggplot() +
 *Fieldwork events represent a complete data submission to the SWIMS system, identified by a fieldwork sequence number (fsn).*
 
 ```{r}
-fieldwork_group_crossjoin %>%
-  mutate(year = as.character(year)) %>%
-  summarize(n = n_distinct(fsn), .by = year) %>%
+fieldwork_group_crossjoin |>
+  mutate(year = as.character(year)) |>
+  summarize(n = n_distinct(fsn), .by = year) |>
   ggplot(aes(x = year, y = n, fill = n, label = n)) +
   geom_col(color = "black") +
   geom_text(vjust = -1) +
@@ -237,9 +254,9 @@ fieldwork_group_crossjoin %>%
 *SWIMS stations may be point stations or river/stream segments identified by a station id.*
 
 ```{r}
-fieldwork_group_crossjoin %>%
-  mutate(year = as.character(year)) %>%
-  summarize(n = n_distinct(station_id), .by = year) %>%
+fieldwork_group_crossjoin |>
+  mutate(year = as.character(year)) |>
+  summarize(n = n_distinct(station_id), .by = year) |>
   ggplot(aes(x = year, y = n, fill = n, label = n)) +
   geom_col(color = "black") +
   geom_text(vjust = -1) +
@@ -257,9 +274,9 @@ fieldwork_group_crossjoin %>%
 *Waterbodies are differentiated by a unique WBIC.*
 
 ```{r}
-fieldwork_group_crossjoin %>%
-  mutate(year = as.character(year)) %>%
-  summarize(n = n_distinct(wbic), .by = year) %>%
+fieldwork_group_crossjoin |>
+  mutate(year = as.character(year)) |>
+  summarize(n = n_distinct(wbic), .by = year) |>
   ggplot(aes(x = year, y = n, fill = n, label = n)) +
   geom_col(color = "black") +
   geom_text(vjust = -1) +
@@ -277,9 +294,9 @@ fieldwork_group_crossjoin %>%
 *Volunteer counts are determined by unique full names tagged to a fieldwork event by a data submitter group id.*
 
 ```{r}
-fieldwork_group_crossjoin %>%
-  mutate(year = as.character(year)) %>%
-  summarize(n = n_distinct(full_name), .by = year) %>%
+fieldwork_group_crossjoin |>
+  mutate(year = as.character(year)) |>
+  summarize(n = n_distinct(full_name), .by = year) |>
   ggplot(aes(x = year, y = n, fill = n, label = n)) +
   geom_col(color = "black") +
   geom_text(vjust = -1) +
@@ -292,9 +309,9 @@ fieldwork_group_crossjoin %>%
 ### Counties monitored per year
 
 ```{r}
-fieldwork_group_crossjoin %>%
-  mutate(year = as.character(year)) %>%
-  summarize(n = n_distinct(county_name), .by = year) %>%
+fieldwork_group_crossjoin |>
+  mutate(year = as.character(year)) |>
+  summarize(n = n_distinct(county_name), .by = year) |>
   ggplot(aes(x = as.character(year), y = n)) +
   geom_col(aes(fill = n), color = "black") +
   geom_text(aes(label = n), vjust = -.5) +
@@ -316,35 +333,35 @@ fieldwork_group_crossjoin %>%
 ```{r}
 #| fig-height: 6
 
-ais_looked_for <- ais_results %>%
-  filter(parameter_code %in% 91157:91172) %>%
+ais_looked_for <- red_results |>
+  filter(parameter_code %in% 91157:91172) |>
   mutate(
-    parameter_name = parameter_name %>%
-      str_replace("\\?", "") %>%
-      str_replace("Did you look for ", "") %>%
+    parameter_name = parameter_name |>
+      str_replace("\\?", "") |>
+      str_replace("Did you look for ", "") |>
       str_to_title()
-  ) %>%
-  mutate(total = n_distinct(fsn)) %>%
-  summarize(n = n(), .by = c(parameter_code, parameter_name, result, total)) %>%
-  pivot_wider(names_from = result, values_from = n, values_fill = 0) %>%
-  clean_names() %>%
-  mutate(na = total - yes - no) %>%
-  mutate(across(c(yes, no, na), ~ .x / total)) %>%
-  arrange(desc(yes)) %>%
+  ) |>
+  mutate(total = n_distinct(fsn)) |>
+  summarize(n = n(), .by = c(parameter_code, parameter_name, result, total)) |>
+  pivot_wider(names_from = result, values_from = n, values_fill = 0) |>
+  clean_names() |>
+  mutate(na = total - yes - no) |>
+  mutate(across(c(yes, no, na), ~ .x / total)) |>
+  arrange(desc(yes)) |>
   mutate(parameter_name = fct_inorder(parameter_name))
 
-ais_looked_for %>%
-  pivot_longer(cols = c(yes, no, na)) %>%
+ais_looked_for |>
+  pivot_longer(cols = c(yes, no, na)) |>
   mutate(
-    name = name %>%
+    name = name |>
       case_match(
         "yes" ~ "Yes",
         "no" ~ "No",
         "na" ~ "No answer"
-      ) %>%
+      ) |>
       factor(levels = c("Yes", "No", "No answer"))
-  ) %>%
-  mutate(label = scales::percent(value, 1)) %>%
+  ) |>
+  mutate(label = scales::percent(value, 1)) |>
   ggplot(aes(x = value, y = parameter_name, fill = name)) +
   geom_col(color = "white", lwd = .25, position = position_stack(reverse = T)) +
   geom_text(
@@ -370,31 +387,34 @@ ais_looked_for %>%
 ### Species looked for by year
 
 ```{r fig.height=6}
-ais_looked_for <- ais_results %>%
-  filter(parameter_code %in% 91157:91172) %>%
+ais_looked_for <- red_results |>
+  filter(parameter_code %in% 91157:91172) |>
   mutate(
-    parameter_name = parameter_name %>%
-      str_replace("\\?", "") %>%
-      str_replace("Did you look for ", "") %>%
+    parameter_name = parameter_name |>
+      str_replace("\\?", "") |>
+      str_replace("Did you look for ", "") |>
       str_to_title()
-  ) %>%
-  mutate(total = n_distinct(fsn), .by = year) %>%
-  summarize(n = n(), .by = c(year, parameter_code, parameter_name, result, total)) %>%
-  pivot_wider(names_from = result, values_from = n, values_fill = 0) %>%
-  clean_names() %>%
-  mutate(na = total - yes - no) %>%
-  mutate(across(c(yes, no, na), ~ .x / total)) %>%
-  arrange(desc(yes)) %>%
+  ) |>
+  mutate(total = n_distinct(fsn), .by = year) |>
+  summarize(
+    n = n(),
+    .by = c(year, parameter_code, parameter_name, result, total)
+  ) |>
+  pivot_wider(names_from = result, values_from = n, values_fill = 0) |>
+  clean_names() |>
+  mutate(na = total - yes - no) |>
+  mutate(across(c(yes, no, na), ~ .x / total)) |>
+  arrange(desc(yes)) |>
   mutate(parameter_name = fct_inorder(parameter_name))
 
-ais_looked_for %>%
-  pivot_longer(cols = c(yes, no, na)) %>%
+ais_looked_for |>
+  pivot_longer(cols = c(yes, no, na)) |>
   mutate(
-    answer = name %>%
-      case_match("yes" ~ "Yes", "no" ~ "No", "na" ~ "No answer") %>%
+    answer = name |>
+      case_match("yes" ~ "Yes", "no" ~ "No", "na" ~ "No answer") |>
       factor(levels = c("Yes", "No", "No answer"))
-  ) %>%
-  mutate(label = scales::percent(value, 1)) %>%
+  ) |>
+  mutate(label = scales::percent(value, 1)) |>
   ggplot(aes(x = year, y = value, fill = answer)) +
   geom_col(color = "white", lwd = .1, width = 1) +
   scale_x_continuous(
@@ -426,26 +446,26 @@ ais_looked_for %>%
 ```{r}
 #| fig-height: 6
 
-ais_looked_for_other <- ais_results %>%
-  filter(parameter_code == 91173) %>%
-  pull(result) %>%
-  na.omit() %>%
-  paste(collapse = ", ") %>%
-  str_replace_all(coll(";"), ",") %>%
-  str_replace_all(coll("."), "") %>%
-  str_replace_all(coll(" and ", ignore_case = T), ", ") %>%
-  str_split(",", simplify = T) %>%
-  str_trim() %>%
-  sort() %>%
-  str_to_title() %>%
-  as_tibble() %>%
-  filter(nchar(value) > 0) %>%
-  count(value) %>%
+ais_looked_for_other <- red_results |>
+  filter(parameter_code == 91173) |>
+  pull(result) |>
+  na.omit() |>
+  paste(collapse = ", ") |>
+  str_replace_all(coll(";"), ",") |>
+  str_replace_all(coll("."), "") |>
+  str_replace_all(coll(" and ", ignore_case = T), ", ") |>
+  str_split(",", simplify = T) |>
+  str_trim() |>
+  sort() |>
+  str_to_title() |>
+  as_tibble() |>
+  filter(nchar(value) > 0) |>
+  count(value) |>
   arrange(desc(n))
 
-ais_looked_for_other %>%
-  filter(n > 1) %>%
-  mutate(value = fct_rev(fct_inorder(value))) %>%
+ais_looked_for_other |>
+  filter(n > 1) |>
+  mutate(value = fct_rev(fct_inorder(value))) |>
   ggplot(aes(x = n, y = value, fill = n)) +
   geom_col(color = "white", width = 1) +
   geom_text(aes(label = n), hjust = -.25) +
@@ -466,64 +486,76 @@ ais_looked_for_other %>%
 *During a fieldwork data submission in SWIMS, volunteers may indicate that they found one or more invasive species during their survey. Below, counts are indicated for all fieldwork submitted from 2008 to present. 'Stations with AIS' refers to any station with at least one positive AIS identification, 'Fieldwork with AIS' refers to fieldwork submissions with at least one positive AIS identification, and 'AIS instances' refers to individual AIS reports (there may be more than one per fieldwork submission).*
 
 ```{r}
-ais_found_totals <- ais_results %>%
-  filter(parameter_code == 20043) %>%
+ais_found_totals <- red_results |>
+  filter(parameter_code == 20043) |>
   summarize(
     stations = n_distinct(station_id),
     fieldwork = n_distinct(fsn),
     found = n()
   )
 
-ais_found <- ais_results %>%
-  filter(parameter_code == 20043) %>%
-  count(station_id, fsn, result) %>%
+ais_found <- red_results |>
+  filter(parameter_code == 20043) |>
+  count(station_id, fsn, result) |>
   summarize(
     stations = n_distinct(station_id),
     fieldwork = n_distinct(fsn),
     found = sum(n),
     .by = result
-  ) %>%
-  arrange(desc(stations)) %>%
-  mutate(across(stations, ~ paste0(.x, " (", round(.x / ais_found_totals$stations * 100), "%)"))) %>%
-  mutate(across(fieldwork, ~ paste0(.x, " (", round(.x / ais_found_totals$fieldwork * 100), "%)"))) %>%
-  mutate(across(found, ~ paste0(.x, " (", round(.x / ais_found_totals$found * 100), "%)")))
+  ) |>
+  arrange(desc(stations)) |>
+  mutate(across(
+    stations,
+    ~ paste0(.x, " (", round(.x / ais_found_totals$stations * 100), "%)")
+  )) |>
+  mutate(across(
+    fieldwork,
+    ~ paste0(.x, " (", round(.x / ais_found_totals$fieldwork * 100), "%)")
+  )) |>
+  mutate(across(
+    found,
+    ~ paste0(.x, " (", round(.x / ais_found_totals$found * 100), "%)")
+  ))
 
-ais_found %>%
+ais_found |>
   set_names(c(
     "Aquatic Invasive Species",
     paste0("Stations with AIS<br>(n = ", ais_found_totals$stations, ")"),
     paste0("Fieldwork with AIS<br>(n = ", ais_found_totals$fieldwork, ")"),
     paste0("AIS instances<br>(n = ", ais_found_totals$found, ")")
-  )) %>%
-  gt() %>%
+  )) |>
+  gt() |>
   cols_label_with(fn = html)
 ```
 
 ### AIS found by year
 
 ```{r}
-ais_results %>%
-  filter(parameter_code == 20043) %>%
+red_results |>
+  filter(parameter_code == 20043) |>
   summarize(
-    `Counties monitored` = paste(sort(unique(na.omit(county_name))), collapse = ", "),
+    `Counties monitored` = paste(
+      sort(unique(na.omit(county_name))),
+      collapse = ", "
+    ),
     `Species found` = paste(sort(unique(result)), collapse = ", "),
     Counties = n_distinct(county_name),
     Stations = n_distinct(station_id),
     Fieldwork = n_distinct(fsn),
     Species = n_distinct(result),
     .by = year
-  ) %>%
-  arrange(year) %>%
-  rename(Year = year) %>%
+  ) |>
+  arrange(year) |>
+  rename(Year = year) |>
   gt()
 ```
 
 ### AIS found by county
 
 ```{r}
-ais_results %>%
-  filter(parameter_code == 20043) %>%
-  drop_na(county_name) %>%
+red_results |>
+  filter(parameter_code == 20043) |>
+  drop_na(county_name) |>
   summarize(
     `Years monitored` = paste(sort(unique(year)), collapse = ", "),
     `Species found` = paste(sort(unique(result)), collapse = ", "),
@@ -532,9 +564,9 @@ ais_results %>%
     Fieldwork = n_distinct(fsn),
     Species = n_distinct(result),
     .by = county_name
-  ) %>%
-  arrange(county_name) %>%
-  rename(`County` = county_name) %>%
+  ) |>
+  arrange(county_name) |>
+  rename(`County` = county_name) |>
   gt()
 ```
 
@@ -543,8 +575,8 @@ ais_results %>%
 *When volunteers submit data to SWIMS each field has an internal parameter code as well as a description (which is shown to the submitter). In the table below, the frequency indicates how many times the parameter was included in the AIS dataset.*
 
 ```{r}
-dnr_parameters %>%
-  set_names(c("Code", "Description", "Frequency")) %>%
+dnr_parameters |>
+  set_names(c("Code", "Description", "Frequency")) |>
   gt()
 ```
 

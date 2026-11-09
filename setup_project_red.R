@@ -1,3 +1,5 @@
+# Build script for data used in the Project RED quarto page
+
 library(tidyverse)
 library(sf)
 library(mapgl)
@@ -7,7 +9,7 @@ library(readxl)
 
 rm(list = ls())
 
-MAX_YEAR <- 2025 # SET THIS
+MAX_YEAR <- 2026 # SET THIS
 
 
 # Load data ----
@@ -15,7 +17,7 @@ MAX_YEAR <- 2025 # SET THIS
 # uses data directly from the swims queries
 data_dir <- function(f) file.path("data_swims", f)
 
-ais_in <- read_excel(data_dir("wav_red_fw.xlsx"), na = c("", "NA")) |>
+red_in <- read_excel(data_dir("wav_red_fw.xlsx"), na = c("", "NA")) |>
   clean_names() |>
   select(
     fsn = fieldwork_seq_no,
@@ -30,7 +32,7 @@ ais_in <- read_excel(data_dir("wav_red_fw.xlsx"), na = c("", "NA")) |>
     station_id
   )
 
-names(ais_in)
+names(red_in)
 
 stns <- read_excel(data_dir("wav_all_stns.xlsx")) |>
   clean_names() |>
@@ -44,11 +46,11 @@ stns <- read_excel(data_dir("wav_all_stns.xlsx")) |>
     wbic,
     waterbody = official_waterbody_name,
   ) |>
-  filter(station_id %in% unique(ais_in$station_id))
+  filter(station_id %in% unique(red_in$station_id))
 
 names(stns)
 
-ais_results <- ais_in |>
+red_results <- red_in |>
   left_join(stns) |>
   mutate(
     date = as_date(datetime),
@@ -60,7 +62,7 @@ ais_results <- ais_in |>
   distinct() |>
   filter(year <= MAX_YEAR)
 
-fieldwork_events <- ais_results |>
+fieldwork_events <- red_results |>
   select(
     -sample_header_seq_no,
     -starts_with("dnr_parameter"),
@@ -68,11 +70,11 @@ fieldwork_events <- ais_results |>
   ) |>
   distinct()
 
-dnr_parameters <- ais_results |>
+dnr_parameters <- red_results |>
   count(parameter_code, parameter_name, sort = T) |>
   filter(n > 100)
 
-results_wide <- ais_results |>
+results_wide <- red_results |>
   filter(parameter_code %in% dnr_parameters$parameter_code) |>
   select(station_id, fsn, date, parameter_name, result) |>
   distinct() |>
@@ -85,7 +87,7 @@ results_wide <- ais_results |>
 
 ## interested parties ----
 
-ais_groups <- read_excel(data_dir("wav_all_ip_groups.xlsx")) |>
+red_groups <- read_excel(data_dir("wav_all_ip_groups.xlsx")) |>
   clean_names() |>
   mutate(
     full_name = case_when(
@@ -99,7 +101,7 @@ ais_groups <- read_excel(data_dir("wav_all_ip_groups.xlsx")) |>
   arrange(last_name, first_name)
 
 fieldwork_group_crossjoin <- fieldwork_events |>
-  left_join(ais_groups, relationship = "many-to-many")
+  left_join(red_groups, relationship = "many-to-many")
 
 annual_counts <- fieldwork_group_crossjoin |>
   summarize(n_fieldwork = n_distinct(fsn), .by = c(station_id, year)) |>
@@ -123,7 +125,7 @@ year_labels <- annual_counts |>
 
 wi_counties <- readRDS("shp/counties.rds") |>
   clean_names() |>
-  rmapshaper::ms_simplify(.1)
+  rmapshaper::ms_simplify(0.1)
 
 wi <- wi_counties |>
   st_union()
@@ -139,22 +141,15 @@ stn_pts <- stns |>
     waterbody,
     station_type
   ) |>
-  filter(station_id %in% ais_results$station_id) |>
+  filter(station_id %in% red_results$station_id) |>
   filter(latitude > 0, longitude < 0) |>
   drop_na() |>
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
 
+# Nonpoint stations for Project RED (rivers/lates/tracks)
+red_nonpoint_stns <- readRDS("data_swims/wav_red_nonpoint_stns.rds")
 
-load("data_project_red/REDlines.Rda")
-
-# line_stns <- read_rds("data_swims/line_stns.rds") |>
-#   as_tibble() |>
-#   st_as_sf() |>
-#   clean_names() |>
-#   filter(station_id %in% ais_results$station_id)
-
-stn_lines <- lapply(RED, st_as_sf) |>
-  bind_rows() |>
+stn_lines <- red_nonpoint_stns |>
   clean_names() |>
   select(
     station_id,
@@ -164,7 +159,7 @@ stn_lines <- lapply(RED, st_as_sf) |>
     station_type = station_type_code,
     geometry = geoms
   ) |>
-  filter(station_id %in% ais_results$station_id)
+  filter(station_id %in% red_results$station_id)
 
 stn_lines_annual <- stn_lines |>
   left_join(annual_counts) |>
@@ -207,8 +202,7 @@ create_popups <- function(df) {
     paste0()
 }
 
-all_pts <-
-  bind_rows(stn_pts, st_centroid(stn_lines)) |>
+all_pts <- bind_rows(stn_pts, st_centroid(stn_lines)) |>
   left_join({
     fieldwork_events |>
       summarize(

@@ -5,7 +5,7 @@ library(readxl)
 
 rm(list = ls())
 
-MAX_YEAR <- 2025 # SET THIS
+MAX_YEAR <- 2026 # SET THIS
 
 # Load data ----
 

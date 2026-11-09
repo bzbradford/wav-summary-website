@@ -1,4 +1,5 @@
-# remove site folder
+# remove quarto and build folders
+unlink(".quarto", recursive = TRUE)
 unlink("site", recursive = TRUE)
 
 # source setup scripts
